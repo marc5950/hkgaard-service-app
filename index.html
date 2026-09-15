@@ -194,6 +194,9 @@
 							inputmode="numeric"
 							class="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-base outline-none transition focus:border-rose-500 focus:ring-4 focus:ring-rose-100"
 							placeholder="0" />
+						<p id="guestWarning" class="mt-2 hidden text-sm font-bold text-rose-700" role="status">
+							Angiv mindst 1 gæst, før bordet kan sendes til køkkenet.
+						</p>
 					</div>
 					<div>
 						<p class="mb-2 text-sm font-bold text-slate-700">Tilvalg</p>
@@ -384,6 +387,7 @@
 			const grid = document.querySelector("#tablesGrid");
 			const modal = document.querySelector("#tableModal");
 			const guestCount = document.querySelector("#guestCount");
+			const guestWarning = document.querySelector("#guestWarning");
 			const tableNote = document.querySelector("#tableNote");
 			const saveNoteButton = document.querySelector("#saveNote");
 			const pescetarianCount = document.querySelector("#pescetarianCount");
@@ -533,6 +537,7 @@
 			}
 			rebuildRooms();
 			guestCount.addEventListener("input", () => {
+				updateGuestGuard();
 				pescetarianCount.max = Math.max(0, Number(guestCount.value) || 0);
 				if (Number(pescetarianCount.value) > Number(pescetarianCount.max)) pescetarianCount.value = pescetarianCount.max;
 			});
@@ -703,6 +708,7 @@
 				return rooms.find((room) => room.tables.includes(Number(tableId)))?.name || "";
 			}
 			async function createKitchenOrder(tableId, quantity, note, course, readyStatus = "") {
+				if (!(Number(quantity) > 0)) return;
 				const timestamp = Date.now();
 				const order = {
 					tableId: Number(tableId),
@@ -750,6 +756,19 @@
 				modal.classList.remove("hidden");
 				modal.classList.add("flex");
 			}
+			function getGuestQuantity() {
+				return Math.max(0, Number(guestCount.value) || 0);
+			}
+			function updateGuestGuard() {
+				const hasGuests = getGuestQuantity() > 0;
+				document.querySelectorAll(".status-button").forEach((button) => {
+					if (button.dataset.status === "empty") return;
+					button.disabled = !hasGuests;
+					button.classList.toggle("opacity-40", !hasGuests);
+					button.classList.toggle("cursor-not-allowed", !hasGuests);
+				});
+				guestWarning.classList.toggle("hidden", hasGuests);
+			}
 			function updateStatusButtons(currentStatus) {
 				const nextStatus =
 					{
@@ -767,6 +786,7 @@
 					button.classList.toggle("status-button-next", isNext);
 					button.classList.toggle("status-button-muted", !isNext && button.dataset.status !== "empty");
 				});
+				updateGuestGuard();
 			}
 			function closeModal() {
 				modal.classList.add("hidden");
@@ -808,6 +828,12 @@
 				if (!activeTableId) return;
 				const tableId = activeTableId;
 				const guestQuantity = Math.max(0, Number(guestCount.value) || 0);
+				if (status !== "empty" && guestQuantity < 1) {
+					saveMessage.textContent = "Angiv antal gæster (mindst 1), før du sender til køkkenet.";
+					updateGuestGuard();
+					guestCount.focus();
+					return;
+				}
 				const selectedPescetarianQuantity = Math.min(guestQuantity, Math.max(0, Number(pescetarianCount.value) || 0));
 				const values = {
 					status,
@@ -875,6 +901,12 @@
 			kitchenToggle.addEventListener("click", () => setView(activeView === "kitchen" ? "tables" : "kitchen"));
 			document.querySelectorAll(".status-button").forEach((button) =>
 				button.addEventListener("click", () => {
+					if (button.dataset.status !== "empty" && getGuestQuantity() < 1) {
+						saveMessage.textContent = "Angiv antal gæster (mindst 1), før du sender til køkkenet.";
+						updateGuestGuard();
+						guestCount.focus();
+						return;
+					}
 					const currentStatus = tables[activeTableId]?.status || "empty";
 					const nextStatus =
 						{
