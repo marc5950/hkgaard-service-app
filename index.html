@@ -879,7 +879,7 @@
 					: `<span class="h-2.5 w-2.5 shrink-0 rounded-full ${status.dot}" title="${status.label}"></span>`;
 
 				return `<button class="table-card ${isEmpty ? "table-card-empty" : ""} rounded-xl border-2 px-3 py-2 text-left shadow-sm ${status.card}" data-table-id="${id}">
-					<div class="flex items-center justify-between gap-2"><span class="font-display text-base font-bold text-slate-900 sm:text-lg">Bord ${id} <span class="font-sans text-xs font-bold text-slate-500 sm:text-sm">· ${toQuantity(table.guests)} pax</span></span><div class="flex items-center gap-2"><span class="text-sm" aria-hidden="true">${extraIcons.join(" ")}</span>${dot}</div></div>
+					<div class="flex items-center justify-between gap-2"><span class="font-display text-base font-bold text-slate-900 sm:text-lg">Bord ${id} <span class="font-sans text-xs font-bold text-slate-500 sm:text-sm">·  ${table.status === "empty" ? "Ledigt" : `${toQuantity(table.guests)} pax`}</span></span><div class="flex items-center gap-2"><span class="text-sm" aria-hidden="true">${extraIcons.join(" ")}</span>${dot}</div></div>
 					${isEmpty ? "" : details}
 				</button>`;
 			}
