@@ -188,6 +188,7 @@
 					<div class="flex items-start justify-between gap-4">
 						<div>
 							<h2 id="modalTitle" class="font-display mt-1 text-2xl font-bold">Bord</h2>
+							<p id="modalStatus" class="mt-1 text-xs font-bold uppercase tracking-[.18em] text-white/70">Ledigt</p>
 						</div>
 						<button
 							id="closeModal"
@@ -247,7 +248,8 @@
 					<div>
 						<!-- Statusknapper: hver knap gemmer bordet og sender evt. en ret til køkkenet.
 						     data-status skal matche nøglerne i statuses/courseByStatus i JS. -->
-						<p class="mb-3 text-sm font-bold text-slate-700">Opdater status</p>
+						<p class="mb-2 text-sm font-bold text-slate-700">Opdater status</p>
+						<p id="statusHint" class="mb-3 hidden rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600" role="status"></p>
 						<div class="grid grid-cols-2 gap-2">
 							<button
 								data-status="seated"
@@ -370,7 +372,8 @@
 			     12. EVENT-BINDINGER (hvilke klik gør hvad)
 			     13. OPSTART + FIREBASE-LYTTERE
 
-			  
+			   Vigtig regel: et bord kan ikke sendes til køkkenet med 0 gæster.
+			   Spærringen sidder fire steder – se afsnit 11 og funktionen createKitchenOrder.
 			   ============================================================================ */
 
 			/* ----------------------------------------------------------------------------
@@ -434,19 +437,29 @@
 			};
 
 			// Den normale rækkefølge i servicen: nuværende status -> det næste logiske trin.
-			// Bruges både til at fremhæve den rigtige knap og til at advare, hvis man springer et trin over.
+			// null betyder "retten er sendt afsted – vi venter på køkkenet". Så er ingen
+			// knap det næste trin, alle knapper er nedtonede, og et klik kræver en
+			// bekræftelse (så man ikke kommer til at sende den samme ret to gange).
 			const nextStatusByStatus = {
 				empty: "seated",
-				seated: "seated",
-				starter_ordered: null,
+				seated: null, // forret sendt
 				starter_ready: "starter_served",
-				starter_served: "starter_served",
-				main_ordered: null,
+				starter_served: null, // hovedret sendt
 				main_ready: "main_served",
-				main_served: "main_served",
-				dessert_ordered: null,
+				main_served: null, // dessert sendt
 				dessert_ready: "dessert_served",
-				dessert_served: "dessert_served",
+				dessert_served: null, // bordet har fået det hele
+			};
+
+			// Forklaringen der vises i modalen, når vi venter på køkkenet.
+			const waitingTextByStatus = {
+				seated: "Forretten er sendt til køkkenet. Vent på at køkkenet trykker den ud.",
+				starter_served: "Hovedretten er sendt til køkkenet. Vent på at køkkenet trykker den ud.",
+				main_served: "Desserten er sendt til køkkenet. Vent på at køkkenet trykker den ud.",
+				dessert_served: "Bordet har fået alle retter. Gør bordet ledigt, når gæsterne er gået.",
+				starter_ready: "Forretten er klar i køkkenet – kør den ud, og bestil hovedret.",
+				main_ready: "Hovedretten er klar i køkkenet – kør den ud, og bestil dessert.",
+				dessert_ready: "Desserten er klar i køkkenet – kør den ud.",
 			};
 
 			// Hvilken ret der sendes til køkkenet, når man trykker på en statusknap.
@@ -525,6 +538,8 @@
 			// Bord-modal
 			const modal = document.querySelector("#tableModal");
 			const modalTitle = document.querySelector("#modalTitle");
+			const modalStatus = document.querySelector("#modalStatus");
+			const statusHint = document.querySelector("#statusHint");
 			const guestCount = document.querySelector("#guestCount");
 			const guestWarning = document.querySelector("#guestWarning");
 			const pescetarianCount = document.querySelector("#pescetarianCount");
@@ -570,14 +585,32 @@
 				return "dessert";
 			}
 
+			// Hvor mange minutter har køkkenet haft ordren? Bruges til ventetids-mærket.
+			function minutesSince(timestamp) {
+				if (!timestamp) return 0;
+				return Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
+			}
+
 			// Er ordren en pescetarisk variant?
 			function isPescetarianCourse(course) {
 				return String(course).toLowerCase().includes("pescetar");
 			}
 
-			// Næste logiske trin for et bord.
+			// Næste logiske trin for et bord – eller null, hvis vi venter på køkkenet.
 			function getNextStatus(currentStatus) {
-				return nextStatusByStatus[currentStatus] || "seated";
+				return currentStatus in nextStatusByStatus ? nextStatusByStatus[currentStatus] : "seated";
+			}
+
+			// Teksten på bekræftelsen, når man klikker uden for den normale rækkefølge.
+			function getConfirmMessage(status, currentStatus) {
+				if (status === "empty") return "Er du sikker på, at bordet skal gøres ledigt?";
+				if (status === currentStatus) {
+					const course = courseByStatus[status]?.course;
+					return course
+						? `${course} er allerede sendt til køkkenet. Vil du sende den igen?`
+						: "Bordet står allerede i denne status. Vil du fortsætte?";
+				}
+				return "Dette følger ikke den normale rækkefølge. Er du sikker på, at du vil fortsætte?";
 			}
 
 			/* ----------------------------------------------------------------------------
@@ -798,9 +831,13 @@
 			---------------------------------------------------------------------------- */
 
 			// Skifter mellem bordoversigt og køkkenvisning.
+			// Visningen skrives i adressen (#kokken / #borde). Så kan køkkenets skærm
+			// bogmærke siden og lande direkte i køen – også efter en genindlæsning.
 			function setView(view) {
 				activeView = view;
 				const isKitchen = view === "kitchen";
+				const hash = isKitchen ? "#kokken" : "#borde";
+				if (window.location.hash !== hash) window.history.replaceState(null, "", hash);
 				tablesGrid.classList.toggle("hidden", isKitchen);
 				kitchenView.classList.toggle("hidden", !isKitchen);
 				statusLegend.classList.toggle("hidden", isKitchen);
@@ -879,7 +916,7 @@
 					.join("");
 
 				return `<article class="min-h-[260px] rounded-2xl border-slate-200 bg-white p-6 shadow-sm">
-					<div class="flex items-center justify-between border-slate-200"><h3 class="font-display text-3xl font-bold text-slate-900">Bord ${escapeHtml(group.tableId)}</h3></div>
+					<div class="flex items-center justify-between gap-3 border-slate-200"><h3 class="font-display text-3xl font-bold text-slate-900">Bord ${escapeHtml(group.tableId)}</h3>${group.room ? `<span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">${escapeHtml(group.room)}</span>` : ""}</div>
 					<div class="mt-5 space-y-4">${courseBoxes}</div>
 					${group.note ? `<p class="mt-4 border-t border-slate-200 pt-3 text-sm font-semibold text-slate-600">${escapeHtml(group.note)}</p>` : ""}
 				</article>`;
@@ -901,7 +938,13 @@
 				const regularQuantity = sumQuantity(false);
 				const pescetarianQuantity = sumQuantity(true);
 
-				return `<div class="rounded-xl border-2 p-5 ${colors}"><div class="flex flex-wrap items-center justify-between gap-4"><div><p class="text-xl font-bold">${escapeHtml(firstOrder.course.replace(/ · pescetarisk/gi, ""))}</p><p class="mt-1 text-4xl font-bold">${regularQuantity + pescetarianQuantity}<span class="ml-2 text-base font-normal">pax</span></p>${pescetarianQuantity ? `<p class="mt-2 text-base font-bold">${pescetarianQuantity} pescetar${regularQuantity ? ` · ${regularQuantity} klassisk` : ""}</p>` : ""}</div><button data-complete-course="${escapeHtml(courseKey)}" data-complete-table="${escapeHtml(group.tableId)}" class="min-h-14 w-full rounded-xl bg-slate-900 px-5 py-4 text-lg font-bold text-white shadow-sm transition hover:bg-slate-700 sm:w-auto sm:min-w-32">Tryk ud</button></div></div>`;
+				// Ventetid regnet fra den ældste ordre i retten. Over 15 min markeres rødt,
+				// så køkkenet kan se, hvilket bord der har ventet længst.
+				const waitedMinutes = minutesSince(Math.min(...courseOrders.map(([, order]) => order.createdAt || Date.now())));
+				const waitColors = waitedMinutes >= 15 ? "bg-rose-600 text-white" : "bg-white/70 text-slate-700";
+				const waitBadge = `<span class="rounded-full px-2 py-1 text-xs font-bold ${waitColors}">${waitedMinutes} min</span>`;
+
+				return `<div class="rounded-xl border-2 p-5 ${colors}"><div class="flex flex-wrap items-center justify-between gap-4"><div><p class="flex items-center gap-2 text-xl font-bold">${escapeHtml(firstOrder.course.replace(/ · pescetarisk/gi, ""))}${waitBadge}</p><p class="mt-1 text-4xl font-bold">${regularQuantity + pescetarianQuantity}<span class="ml-2 text-base font-normal">pax</span></p>${pescetarianQuantity ? `<p class="mt-2 text-base font-bold">${pescetarianQuantity} pescetar${regularQuantity ? ` · ${regularQuantity} klassisk` : ""}</p>` : ""}</div><button data-complete-course="${escapeHtml(courseKey)}" data-complete-table="${escapeHtml(group.tableId)}" class="min-h-14 w-full rounded-xl bg-slate-900 px-5 py-4 text-lg font-bold text-white shadow-sm transition hover:bg-slate-700 sm:w-auto sm:min-w-32">Tryk ud</button></div></div>`;
 			}
 
 			// Færdigmelder alle ordrer for én ret på ét bord (både klassisk og pescetarisk).
@@ -1036,13 +1079,22 @@
 			}
 
 			// Fremhæver den knap, der er det næste logiske trin, og dæmper de øvrige.
+			// Er nextStatus null (retten er sendt, køkkenet arbejder), dæmpes ALLE knapper –
+			// så man kan se, at der ikke er noget at foretage sig lige nu.
 			function updateStatusButtons(currentStatus) {
 				const nextStatus = getNextStatus(currentStatus);
 				document.querySelectorAll(".status-button").forEach((button) => {
-					const isNext = button.dataset.status === nextStatus;
+					const isNext = nextStatus !== null && button.dataset.status === nextStatus;
 					button.classList.toggle("status-button-next", isNext);
 					button.classList.toggle("status-button-muted", !isNext && button.dataset.status !== "empty");
 				});
+
+				// Statuslinje i headeren + forklaring over knapperne.
+				modalStatus.textContent = (statuses[currentStatus] || statuses.empty).label;
+				const hint = waitingTextByStatus[currentStatus] || "";
+				statusHint.textContent = hint;
+				statusHint.classList.toggle("hidden", !hint);
+
 				updateGuestGuard();
 			}
 
@@ -1183,15 +1235,11 @@
 						return;
 					}
 
-					// Bekræft, hvis bordet ryddes, eller hvis man springer et trin over i servicen.
-					const isOutOfSequence = status !== getNextStatus(tables[activeTableId]?.status || "empty") && status !== "empty";
-					if (isOutOfSequence || status === "empty") {
-						const message =
-							status === "empty"
-								? "Er du sikker på, at bordet skal gøres ledigt?"
-								: "Dette følger ikke den normale rækkefølge. Er du sikker på, at du vil fortsætte?";
-						if (!window.confirm(message)) return;
-					}
+					// Bekræft, hvis bordet ryddes, hvis retten allerede er sendt, eller hvis
+					// man springer et trin over i servicen.
+					const currentStatus = tables[activeTableId]?.status || "empty";
+					const needsConfirm = status === "empty" || status !== getNextStatus(currentStatus);
+					if (needsConfirm && !window.confirm(getConfirmMessage(status, currentStatus))) return;
 
 					saveTable(status);
 				}),
@@ -1230,8 +1278,13 @@
 			renderRoomHotbar();
 			renderTables();
 			renderKitchen();
-			setView("tables");
+			setView(window.location.hash === "#kokken" ? "kitchen" : "tables");
 			updateRoomHotbar(rooms[0]?.id);
+
+			// Ventetiderne i køkkenkøen tikker videre af sig selv.
+			setInterval(() => {
+				if (activeView === "kitchen") renderKitchen();
+			}, 30000);
 
 			// Er der rigtige nøgler i firebaseConfig, eller kører vi demo?
 			const hasFirebaseConfig = !firebaseConfig.apiKey.startsWith("INDSAET") && !firebaseConfig.projectId.startsWith("DIT-");
