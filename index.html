@@ -1,0 +1,957 @@
+<!doctype html>
+<html lang="da">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Bordstyring | Hestkøbgaard</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+		<style>
+			:root {
+				color-scheme: light;
+			}
+			body {
+				background: #f4f5f7;
+				color: #17202a;
+				font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+			}
+			.font-display {
+				font-family: Georgia, "Times New Roman", serif;
+			}
+			.table-card {
+				transition:
+					transform 160ms ease,
+					box-shadow 160ms ease;
+			}
+			.table-card-empty {
+				min-height: 0;
+			}
+			.room-section {
+				scroll-margin-top: 1.5rem;
+			}
+			.room-table-grid {
+				grid-template-columns: minmax(0, 1fr) !important;
+			}
+			@media (min-width: 640px) {
+				.room-table-grid {
+					grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+				}
+			}
+			@media (min-width: 1024px) {
+				.room-table-grid {
+					grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+				}
+			}
+			@media (min-width: 1280px) {
+				.room-table-grid {
+					grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+				}
+			}
+			.table-card:hover {
+				transform: translateY(-3px);
+				box-shadow: 0 14px 30px rgba(23, 32, 42, 0.14);
+			}
+			.table-card-ready-dot {
+				position: relative;
+				box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.22);
+				animation: ready-dot-pulse 1.8s ease-in-out infinite;
+			}
+			@keyframes ready-dot-pulse {
+				0%,
+				100% {
+					box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.22);
+				}
+				50% {
+					box-shadow: 0 0 0 7px rgba(245, 158, 11, 0.38);
+				}
+			}
+			.modal-backdrop {
+				background: rgba(23, 32, 42, 0.58);
+				backdrop-filter: blur(5px);
+			}
+			.modal-panel {
+				animation: rise 180ms ease-out;
+			}
+			@keyframes rise {
+				from {
+					opacity: 0;
+					transform: translateY(14px) scale(0.98);
+				}
+				to {
+					opacity: 1;
+					transform: translateY(0) scale(1);
+				}
+			}
+			.status-dot {
+				box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.28);
+			}
+			.status-button-muted {
+				opacity: 0.52;
+				filter: saturate(0.55);
+			}
+			.status-button-next {
+				box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.18);
+			}
+		</style>
+	</head>
+	<body class="min-h-screen">
+		<div class="mx-auto min-h-screen max-w-[1600px] px-4 py-5 pb-32 sm:px-8 sm:py-8 sm:pb-28">
+			<header class="mb-8 flex flex-col gap-5 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
+				<div>
+					<p class="mb-2 text-xs font-bold uppercase tracking-[.28em] text-rose-700">Dining Week · Service App</p>
+					<h1 class="font-display text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">Hestkøbgaard</h1>
+				</div>
+				<div class="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+					<div class="flex h-[52px] items-center gap-3 rounded-2xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
+						<span id="connectionDot" class="status-dot h-3 w-3 rounded-full bg-slate-400"></span>
+						<div>
+							<p id="connectionLabel" class="text-sm font-bold text-slate-800">Forbinder...</p>
+							<p id="tableCount" class="text-xs text-slate-500">20 borde i alt</p>
+						</div>
+					</div>
+					<button
+						id="kitchenToggle"
+						class="h-[52px] w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-700 sm:w-44">
+						Åbn køkken
+					</button>
+					<button
+						id="settingsToggle"
+						class="h-[52px] w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 sm:w-44">
+						Opsætning
+					</button>
+				</div>
+			</header>
+
+			<div id="statusLegend" class="mb-6 flex flex-wrap gap-2" aria-label="Statusforklaring">
+				<span class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700">Grå · Ledigt</span>
+				<span class="rounded-full bg-rose-100 px-3 py-1.5 text-xs font-bold text-rose-800">Rød · Venter forret</span>
+				<span class="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-800">Gul · Forret</span>
+				<span class="rounded-full bg-sky-100 px-3 py-1.5 text-xs font-bold text-sky-800">Blå · Hovedret</span>
+				<span class="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-800">Grøn · Dessert</span>
+			</div>
+			<nav
+				id="roomHotbar"
+				class="fixed inset-x-0 bottom-0 z-40 flex flex-wrap justify-center gap-2 border-t border-slate-200 bg-white/95 px-3 py-3 shadow-[0_-8px_24px_rgba(23,32,42,.12)] backdrop-blur sm:px-6"
+				aria-label="Vælg lokale">
+				<div id="roomHotbarButtons" class="flex flex-wrap justify-center gap-2"></div>
+			</nav>
+
+			<main id="tablesGrid" class="space-y-10"></main>
+			<section id="kitchenView" class="hidden" aria-labelledby="kitchenTitle">
+				<div class="mb-6 flex items-end justify-between gap-4">
+					<div>
+						<p class="mb-2 text-xs font-bold uppercase tracking-[.25em] text-slate-500">Live bestillinger</p>
+						<h2 id="kitchenTitle" class="font-display text-4xl font-bold text-slate-900">Køkkenkø</h2>
+					</div>
+					<span id="kitchenCount" class="rounded-full bg-amber-100 px-3 py-2 text-sm font-bold text-amber-900">0 aktive</span>
+				</div>
+				<div id="kitchenSummary" class="mb-6 flex flex-wrap gap-2" aria-label="Mangler i køkkenet">
+					<span class="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-900"
+						>Forret mangler: <strong id="starterMissing">0 pax</strong></span
+					>
+					<span class="rounded-full bg-sky-100 px-3 py-1.5 text-xs font-bold text-sky-900"
+						>Hovedret mangler: <strong id="mainMissing">0 pax</strong
+						><span class="ml-1 text-sky-800"
+							>· <strong id="mainMissingClassic">0 klassisk</strong> · <strong id="mainMissingPescetarian">0 pescetar</strong></span
+						></span
+					>
+					<span class="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-900"
+						>Dessert mangler: <strong id="dessertMissing">0 pax</strong></span
+					>
+				</div>
+				<div id="kitchenOrders" class="grid gap-5 md:grid-cols-2 xl:grid-cols-3"></div>
+				<p id="emptyKitchen" class="rounded-2xl border-2 border-dashed border-slate-300 p-10 text-center text-slate-500">Ingen aktive bestillinger</p>
+			</section>
+		</div>
+
+		<div
+			id="tableModal"
+			class="modal-backdrop fixed inset-0 z-50 hidden items-end justify-center overflow-hidden p-3 sm:items-center sm:p-6"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="modalTitle">
+			<div
+				class="modal-panel my-auto max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
+				<div id="modalHeader" class="bg-slate-800 px-4 py-3 text-white sm:px-5">
+					<div class="flex items-start justify-between gap-4">
+						<div>
+							<h2 id="modalTitle" class="font-display mt-1 text-2xl font-bold">Bord</h2>
+						</div>
+						<button
+							id="closeModal"
+							class="rounded-full p-2 text-2xl leading-none text-white/70 transition hover:bg-white/10 hover:text-white"
+							aria-label="Luk modal">
+							&times;
+						</button>
+					</div>
+				</div>
+				<div class="space-y-4 p-4 sm:p-5">
+					<div>
+						<label for="guestCount" class="mb-2 block text-sm font-bold text-slate-700">Antal gæster</label
+						><input
+							id="guestCount"
+							type="number"
+							min="0"
+							inputmode="numeric"
+							class="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-base outline-none transition focus:border-rose-500 focus:ring-4 focus:ring-rose-100"
+							placeholder="0" />
+					</div>
+					<div>
+						<p class="mb-2 text-sm font-bold text-slate-700">Tilvalg</p>
+						<div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+							<label
+								class="flex h-full cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700"
+								><input id="extraWelcomeDrink" type="checkbox" class="h-5 w-5 accent-rose-600" /> Velkomstdrink</label
+							>
+							<label
+								class="flex h-full cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700"
+								><input id="extraWine" type="checkbox" class="h-5 w-5 accent-rose-600" /> Vinmenu</label
+							>
+							<div class="rounded-lg border border-slate-200 bg-slate-50 p-3 sm:col-span-2 lg:col-span-3">
+								<div class="grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+									<div>
+										<label for="pescetarianCount" class="block text-sm font-semibold text-slate-700">Antal pescetariske kuverter</label>
+										<input
+											id="pescetarianCount"
+											type="number"
+											min="0"
+											value="0"
+											inputmode="numeric"
+											class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-base outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" />
+									</div>
+									<label
+										class="flex cursor-pointer items-center gap-2 border-t border-slate-200 pt-2 text-sm text-slate-700 sm:border-t-0 sm:border-l sm:px-3 sm:pt-0">
+										<input id="extraPescetarianWine" type="checkbox" class="h-4 w-4 accent-rose-600" />
+										<span>Vinmenu til pescetar</span>
+									</label>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div>
+						<p class="mb-3 text-sm font-bold text-slate-700">Opdater status</p>
+						<div class="grid grid-cols-2 gap-2">
+							<button
+								data-status="seated"
+								class="status-button rounded-lg bg-rose-600 px-3 py-2 text-left text-sm font-bold text-white transition hover:bg-rose-700">
+								Kør forret
+							</button>
+							<button
+								data-status="starter_served"
+								class="status-button rounded-lg bg-amber-400 px-3 py-2 text-left text-sm font-bold text-amber-950 transition hover:bg-amber-500">
+								Kør hovedret
+							</button>
+							<button
+								data-status="main_served"
+								class="status-button rounded-lg bg-sky-600 px-3 py-2 text-left text-sm font-bold text-white transition hover:bg-sky-700">
+								Kør dessert
+							</button>
+							<button
+								data-status="dessert_served"
+								class="status-button rounded-lg bg-emerald-600 px-3 py-2 text-left text-sm font-bold text-white transition hover:bg-emerald-700">
+								Dessert kørt
+							</button>
+							<button
+								data-status="empty"
+								class="status-button col-span-2 rounded-lg border-2 border-slate-200 bg-white px-3 py-2 text-left text-sm font-bold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50">
+								Gør bordet ledigt
+							</button>
+						</div>
+					</div>
+					<div>
+						<label for="tableNote" class="mb-2 block text-sm font-bold text-slate-700">Note</label
+						><textarea
+							id="tableNote"
+							maxlength="300"
+							rows="3"
+							class="w-full resize-y rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm outline-none transition focus:border-rose-500 focus:ring-4 focus:ring-rose-100"
+							placeholder="F.eks. glutenallergi"></textarea>
+					</div>
+					<div class="grid grid-cols-2 gap-2">
+						<button
+							id="closeModalBottom"
+							class="w-full rounded-lg border-2 border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50">
+							Luk
+						</button>
+						<button
+							id="saveNote"
+							class="w-full rounded-lg border-2 border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50">
+							Gem
+						</button>
+					</div>
+					<p id="saveMessage" class="min-h-5 text-sm font-bold text-rose-700" role="status"></p>
+				</div>
+			</div>
+		</div>
+
+		<div
+			id="settingsModal"
+			class="modal-backdrop fixed inset-0 z-50 hidden items-end justify-center overflow-hidden p-3 sm:items-center sm:p-6"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="settingsTitle">
+			<div
+				class="modal-panel my-auto max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
+				<div class="flex items-center justify-between bg-slate-800 px-4 py-3 text-white sm:px-5">
+					<div>
+						<p class="text-xs font-bold uppercase tracking-[.2em] text-white/60">Administration</p>
+						<h2 id="settingsTitle" class="font-display text-2xl font-bold">Opsætning</h2>
+					</div>
+					<button
+						id="closeSettings"
+						class="rounded-full p-2 text-2xl leading-none text-white/70 hover:bg-white/10 hover:text-white"
+						aria-label="Luk opsætning">
+						&times;
+					</button>
+				</div>
+				<div class="space-y-4 p-4 sm:p-5">
+					<p class="text-sm text-slate-500">Navngiv lokalerne og vælg, hvor mange borde hvert lokale har.</p>
+					<div id="roomSettingsRows" class="space-y-2"></div>
+					<button
+						id="addRoom"
+						class="w-full rounded-lg border-2 border-dashed border-slate-300 px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50">
+						+ Tilføj lokale
+					</button>
+					<div class="grid grid-cols-2 gap-2 pt-2">
+						<button id="saveSettings" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-bold text-white hover:bg-slate-700">Gem opsætning</button
+						><button
+							id="resetAllTables"
+							class="rounded-lg border-2 border-rose-200 bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700 hover:bg-rose-100">
+							Nulstil alle borde
+						</button>
+					</div>
+					<p id="settingsMessage" class="min-h-5 text-sm font-bold text-rose-700" role="status"></p>
+				</div>
+			</div>
+		</div>
+
+		<script type="module">
+			import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+			import { getDatabase, onValue, push, ref, set, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+			// Indsæt dine Firebase-værdier herfra Firebase Console > Project settings.
+			const firebaseConfig = {
+				apiKey: "AIzaSyDbJPv3shtCSQ4ncWeVv8mt005_v6kSpfY",
+				authDomain: "hkgaard-service-app.firebaseapp.com",
+				databaseURL: "https://hkgaard-service-app-default-rtdb.europe-west1.firebasedatabase.app",
+				projectId: "hkgaard-service-app",
+				storageBucket: "hkgaard-service-app.firebasestorage.app",
+				messagingSenderId: "835254363556",
+				appId: "1:835254363556:web:63da290addf0481c334d31",
+			};
+
+			const statuses = {
+				empty: { label: "Ledigt / Afrydet", card: "border-slate-300 bg-slate-200", badge: "bg-slate-200 text-slate-700", dot: "bg-slate-400" },
+				seated: { label: "Forret bestilt", card: "border-rose-200 bg-rose-50", badge: "bg-rose-100 text-rose-800", dot: "bg-rose-500" },
+				starter_ready: { label: "Forret klar", card: "border-amber-200 bg-amber-50", badge: "bg-amber-100 text-amber-800", dot: "bg-amber-500" },
+				starter_served: {
+					label: "Forret kørt · Hovedret bestilt",
+					card: "border-amber-200 bg-amber-50",
+					badge: "bg-amber-100 text-amber-800",
+					dot: "bg-amber-500",
+				},
+				main_ready: { label: "Hovedret klar", card: "border-sky-200 bg-sky-50", badge: "bg-sky-100 text-sky-800", dot: "bg-sky-500" },
+				main_served: {
+					label: "Hovedret kørt · Dessert bestilt",
+					card: "border-sky-200 bg-sky-50",
+					badge: "bg-sky-100 text-sky-800",
+					dot: "bg-sky-500",
+				},
+				dessert_ready: {
+					label: "Dessert klar",
+					card: "border-emerald-200 bg-emerald-50",
+					badge: "bg-emerald-100 text-emerald-800",
+					dot: "bg-emerald-500",
+				},
+				dessert_served: {
+					label: "Dessert kørt",
+					card: "border-emerald-200 bg-emerald-50",
+					badge: "bg-emerald-100 text-emerald-800",
+					dot: "bg-emerald-500",
+				},
+			};
+			const fallbackTables = Object.fromEntries(Array.from({ length: 20 }, (_, index) => [index + 1, { status: "empty", guests: 0, note: "" }]));
+			let tables = { ...fallbackTables };
+			let kitchenOrders = {};
+			let activeTableId = null;
+			let activeView = "tables";
+			let settingsRooms = [
+				{ id: "cafe", name: "Cafe", count: 5, accent: "text-rose-700", line: "bg-rose-600", nav: "bg-rose-100 text-rose-800" },
+				{ id: "festsal", name: "Festsal", count: 5, accent: "text-sky-700", line: "bg-sky-600", nav: "bg-sky-100 text-sky-800" },
+				{ id: "gul-stue", name: "Gul stue", count: 5, accent: "text-amber-700", line: "bg-amber-500", nav: "bg-amber-100 text-amber-800" },
+				{ id: "terrase", name: "Terrase", count: 5, accent: "text-emerald-700", line: "bg-emerald-600", nav: "bg-emerald-100 text-emerald-800" },
+			];
+
+			const grid = document.querySelector("#tablesGrid");
+			const modal = document.querySelector("#tableModal");
+			const guestCount = document.querySelector("#guestCount");
+			const tableNote = document.querySelector("#tableNote");
+			const saveNoteButton = document.querySelector("#saveNote");
+			const pescetarianCount = document.querySelector("#pescetarianCount");
+			const extraWine = document.querySelector("#extraWine");
+			const extraPescetarianWine = document.querySelector("#extraPescetarianWine");
+			const extraWelcomeDrink = document.querySelector("#extraWelcomeDrink");
+			const saveMessage = document.querySelector("#saveMessage");
+			const tableCount = document.querySelector("#tableCount");
+			const tablesGrid = document.querySelector("#tablesGrid");
+			const kitchenView = document.querySelector("#kitchenView");
+			const kitchenOrdersElement = document.querySelector("#kitchenOrders");
+			const kitchenCount = document.querySelector("#kitchenCount");
+			const emptyKitchen = document.querySelector("#emptyKitchen");
+			const kitchenToggle = document.querySelector("#kitchenToggle");
+			const kitchenSummary = document.querySelector("#kitchenSummary");
+			const starterMissing = document.querySelector("#starterMissing");
+			const mainMissing = document.querySelector("#mainMissing");
+			const mainMissingClassic = document.querySelector("#mainMissingClassic");
+			const mainMissingPescetarian = document.querySelector("#mainMissingPescetarian");
+			const dessertMissing = document.querySelector("#dessertMissing");
+			const settingsModal = document.querySelector("#settingsModal");
+			const settingsRows = document.querySelector("#roomSettingsRows");
+			const settingsMessage = document.querySelector("#settingsMessage");
+			const hotbarButtons = document.querySelector("#roomHotbarButtons");
+			const rooms = [];
+			const collapsedRooms = new Set();
+			const roomColors = {
+				rose: { label: "Rød", accent: "text-rose-700", line: "bg-rose-600", nav: "bg-rose-100 text-rose-800" },
+				sky: { label: "Blå", accent: "text-sky-700", line: "bg-sky-600", nav: "bg-sky-100 text-sky-800" },
+				amber: { label: "Gul", accent: "text-amber-700", line: "bg-amber-500", nav: "bg-amber-100 text-amber-800" },
+				emerald: { label: "Grøn", accent: "text-emerald-700", line: "bg-emerald-600", nav: "bg-emerald-100 text-emerald-800" },
+				violet: { label: "Lilla", accent: "text-violet-700", line: "bg-violet-600", nav: "bg-violet-100 text-violet-800" },
+				slate: { label: "Grå", accent: "text-slate-700", line: "bg-slate-500", nav: "bg-slate-200 text-slate-700" },
+				brown: { label: "Brun", accent: "text-amber-900", line: "bg-amber-800", nav: "bg-amber-100 text-amber-900" },
+			};
+
+			function rebuildRooms() {
+				rooms.length = 0;
+				let nextTableId = 1;
+				settingsRooms.forEach((room) => {
+					rooms.push({ ...room, tables: Array.from({ length: room.count }, () => nextTableId++) });
+				});
+			}
+			function renderRoomHotbar() {
+				hotbarButtons.innerHTML = rooms
+					.map(
+						(room) =>
+							`<button data-room-target="${room.id}" class="room-nav-button rounded-xl px-4 py-2.5 text-sm font-bold transition ${room.nav || "bg-white text-slate-700 ring-1 ring-slate-200"}">${escapeHtml(room.name)}</button>`,
+					)
+					.join("");
+				hotbarButtons.querySelectorAll("[data-room-target]").forEach((button) =>
+					button.addEventListener("click", () => {
+						const selectedRoom = button.dataset.roomTarget;
+						updateRoomHotbar(selectedRoom);
+						if (window.matchMedia("(max-width: 639px)").matches) {
+							rooms.forEach((room) => (room.id === selectedRoom ? collapsedRooms.delete(room.id) : collapsedRooms.add(room.id)));
+							renderTables();
+						}
+						document.querySelector(`#room-${selectedRoom}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+					}),
+				);
+			}
+			function createEmptyTables() {
+				return Object.fromEntries(rooms.flatMap((room) => room.tables.map((id) => [id, { status: "empty", guests: 0, note: "", extras: {} }])));
+			}
+			function renderSettingsRows() {
+				settingsRows.innerHTML = settingsRooms
+					.map(
+						(room, index) =>
+							`<div class="grid grid-cols-[minmax(0,1fr)_88px_100px_36px] items-center gap-2"><input data-room-name="${index}" value="${escapeHtml(room.name)}" class="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" aria-label="Lokalnavn" /><input data-room-count="${index}" type="number" min="0" max="100" value="${room.count}" class="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" aria-label="Antal borde" /><select data-room-color="${index}" class="rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" aria-label="Lokale farve">${Object.entries(
+								roomColors,
+							)
+								.map(([key, color]) => `<option value="${key}" ${room.nav === color.nav ? "selected" : ""}>${color.label}</option>`)
+								.join(
+									"",
+								)}</select><button data-remove-room="${index}" class="rounded-lg p-2 text-lg font-bold text-slate-400 hover:bg-rose-50 hover:text-rose-700" aria-label="Fjern lokale">&times;</button></div>`,
+					)
+					.join("");
+				settingsRows.querySelectorAll("[data-remove-room]").forEach((button) =>
+					button.addEventListener("click", () => {
+						if (settingsRooms.length > 1) {
+							settingsRooms.splice(Number(button.dataset.removeRoom), 1);
+							renderSettingsRows();
+						}
+					}),
+				);
+			}
+			function openSettings() {
+				renderSettingsRows();
+				settingsMessage.textContent = "";
+				settingsModal.classList.remove("hidden");
+				settingsModal.classList.add("flex");
+			}
+			function closeSettings() {
+				settingsModal.classList.add("hidden");
+				settingsModal.classList.remove("flex");
+			}
+			async function saveSettings() {
+				const nextRooms = settingsRooms
+					.map((room, index) => ({
+						...room,
+						name: settingsRows.querySelector(`[data-room-name="${index}"]`).value.trim() || `Lokale ${index + 1}`,
+						count: Math.max(0, Number(settingsRows.querySelector(`[data-room-count="${index}"]`).value) || 0),
+						...roomColors[settingsRows.querySelector(`[data-room-color="${index}"]`).value],
+					}))
+					.filter((room) => room.count > 0);
+				if (!nextRooms.length) {
+					settingsMessage.textContent = "Der skal være mindst ét lokale med borde.";
+					return;
+				}
+				settingsRooms = nextRooms;
+				rebuildRooms();
+				renderRoomHotbar();
+				const configuredTables = createEmptyTables();
+				tables = Object.fromEntries(Object.keys(configuredTables).map((tableId) => [tableId, tables[tableId] || configuredTables[tableId]]));
+				try {
+					if (window.database) {
+						await update(ref(window.database), {
+							settings: { rooms: settingsRooms.map(({ id, name, count, accent, line, nav }) => ({ id, name, count, accent, line, nav })) },
+						});
+						await set(ref(window.database, "tables"), tables);
+					}
+					renderTables();
+					updateRoomHotbar(rooms[0]?.id);
+					tableCount.textContent = `${Object.keys(tables).length} borde i alt`;
+					settingsMessage.textContent = "Opsætning gemt";
+					setTimeout(closeSettings, 400);
+				} catch (error) {
+					console.error(error);
+					settingsMessage.textContent = "Kunne ikke gemme opsætningen.";
+				}
+			}
+			async function resetAllTables() {
+				if (!confirm("Nulstil alle borde og aktive køkkenordrer?")) return;
+				const emptyTables = createEmptyTables();
+				try {
+					tables = emptyTables;
+					kitchenOrders = {};
+					if (window.database) await update(ref(window.database), { tables: emptyTables, kitchenOrders: {} });
+					renderTables();
+					renderKitchen();
+					settingsMessage.textContent = "Alle borde er nulstillet";
+				} catch (error) {
+					console.error(error);
+					settingsMessage.textContent = "Kunne ikke nulstille bordene.";
+				}
+			}
+			rebuildRooms();
+			guestCount.addEventListener("input", () => {
+				pescetarianCount.max = Math.max(0, Number(guestCount.value) || 0);
+				if (Number(pescetarianCount.value) > Number(pescetarianCount.max)) pescetarianCount.value = pescetarianCount.max;
+			});
+			pescetarianCount.addEventListener("input", () => {
+				const maximum = Math.max(0, Number(guestCount.value) || 0);
+				if (Number(pescetarianCount.value) > maximum) pescetarianCount.value = maximum;
+				if (Number(pescetarianCount.value) < 0) pescetarianCount.value = 0;
+			});
+
+			function updateRoomHotbar(activeRoomId) {
+				document.querySelectorAll("[data-room-target]").forEach((button) => {
+					const isActive = button.dataset.roomTarget === activeRoomId;
+					const room = rooms.find((candidate) => candidate.id === button.dataset.roomTarget);
+					button.className = `room-nav-button rounded-xl px-4 py-2.5 text-sm font-bold transition ${isActive ? "bg-slate-900 text-white hover:bg-slate-700" : `${room?.nav || "bg-white text-slate-700 ring-1 ring-slate-200"} hover:brightness-95`}`;
+				});
+			}
+
+			function renderTables() {
+				tableCount.textContent = `${Object.keys(tables).length} borde i alt`;
+				grid.innerHTML = rooms
+					.map(
+						(room) => `<section id="room-${room.id}" class="room-section" aria-labelledby="room-heading-${room.id}">
+						<button data-room-toggle="${room.id}" aria-expanded="${!collapsedRooms.has(room.id)}" class="mb-4 flex w-full items-center gap-3 text-left">
+							<span class="h-8 w-1.5 rounded-full ${room.line}"></span><span class="flex-1"><span id="room-heading-${room.id}" class="font-display text-3xl font-bold ${room.accent}">${room.name}</span><span class="ml-3 text-sm font-bold text-slate-400">${room.tables.length} borde</span></span><span class="text-xl text-slate-400">${collapsedRooms.has(room.id) ? "▸" : "▾"}</span>
+						</button>
+						<div class="room-table-grid ${collapsedRooms.has(room.id) ? "hidden" : "grid"} gap-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">${room.tables
+							.filter((id) => tables[id])
+							.map((id) => {
+								const table = tables[id];
+								const status = statuses[table.status] || statuses.empty;
+								const readyDotClass = ["starter_ready", "main_ready", "dessert_ready"].includes(table.status) ? "table-card-ready-dot" : "";
+								const extras = table.extras || {};
+								const extraLabels = [
+									extras.wine && "Vinmenu",
+									extras.pescetarianWine && "Vinmenu til pescetar",
+									extras.welcomeDrink && "Velkomstdrink",
+								].filter(Boolean);
+								const pescetarianQuantity = Number(extras.pescetarianQuantity) || 0;
+								const isEmpty = table.status === "empty";
+								const extraIcons = [
+									extras.welcomeDrink && `<span title="Velkomstdrink" aria-label="Velkomstdrink">🥂</span>`,
+									extras.wine && `<span title="Vinmenu" aria-label="Vinmenu">🍷</span>`,
+									extras.pescetarianWine && `<span title="Vinmenu til pescetar" aria-label="Vinmenu til pescetar">🐟🍷</span>`,
+								].filter(Boolean);
+								return `<button class="table-card ${isEmpty ? "table-card-empty" : ""} rounded-xl border-2 px-3 py-2 text-left shadow-sm ${status.card}" data-table-id="${id}">
+						<div class="flex items-center justify-between gap-2"><span class="font-display text-base font-bold text-slate-900 sm:text-lg">Bord ${id} <span class="font-sans text-xs font-bold text-slate-500 sm:text-sm">· ${Number(table.guests) || 0} pax</span></span><div class="flex items-center gap-2"><span class="text-sm" aria-hidden="true">${extraIcons.join(" ")}</span><span class="h-2.5 w-2.5 shrink-0 rounded-full ${status.dot} ${readyDotClass}" title="${readyDotClass ? "Mad klar" : status.label}"></span></div></div>
+						${isEmpty ? "" : `<div class="mt-1 flex items-start justify-between gap-2"><div class="min-w-0 flex-1">${pescetarianQuantity ? `<p class="text-[11px] font-bold text-amber-800 sm:text-xs">${pescetarianQuantity} pescetar</p>` : ""}${table.note ? `<p class="mt-1 max-w-full truncate text-[11px] font-semibold text-slate-600 sm:text-xs" title="${escapeHtml(table.note)}">${escapeHtml(table.note)}</p>` : ""}</div><span class="shrink-0 rounded-full px-2 py-1 text-[10px] font-bold leading-tight ${status.badge} sm:text-xs">${status.label}</span></div>`}
+					</button>`;
+							})
+							.join("")}</div>
+					</section>`,
+					)
+					.join("");
+				grid.querySelectorAll("[data-table-id]").forEach((card) => card.addEventListener("click", () => openModal(card.dataset.tableId)));
+				grid.querySelectorAll("[data-room-toggle]").forEach((button) =>
+					button.addEventListener("click", () => {
+						const roomId = button.dataset.roomToggle;
+						if (collapsedRooms.has(roomId)) collapsedRooms.delete(roomId);
+						else collapsedRooms.add(roomId);
+						renderTables();
+					}),
+				);
+			}
+
+			function getCourseKey(course) {
+				const normalizedCourse = String(course).toLowerCase();
+				if (normalizedCourse.startsWith("forret")) return "starter";
+				if (normalizedCourse.startsWith("hovedret")) return "main";
+				return "dessert";
+			}
+
+			function renderKitchen() {
+				const activeOrders = Object.entries(kitchenOrders)
+					.filter(([, order]) => order.status === "pending")
+					.sort(([, first], [, second]) => (first.createdAt || 0) - (second.createdAt || 0));
+				const groupedOrders = new Map();
+				activeOrders.forEach(([id, order]) => {
+					const tableKey = String(order.tableId);
+					if (!groupedOrders.has(tableKey))
+						groupedOrders.set(tableKey, { tableId: order.tableId, room: order.room || "", note: order.note || "", courses: new Map() });
+					const courseKey = getCourseKey(order.course);
+					if (!groupedOrders.get(tableKey).courses.has(courseKey)) groupedOrders.get(tableKey).courses.set(courseKey, []);
+					groupedOrders.get(tableKey).courses.get(courseKey).push([id, order]);
+				});
+				const courseCount = Array.from(groupedOrders.values()).reduce((total, group) => total + group.courses.size, 0);
+				const missing = { starter: 0, main: 0, dessert: 0 };
+				const mainBreakdown = { classic: 0, pescetarian: 0 };
+				activeOrders.forEach(([, order]) => {
+					const quantity = Number(order.quantity) || 0;
+					const courseKey = getCourseKey(order.course);
+					missing[courseKey] += quantity;
+					if (courseKey === "main") {
+						if (order.course.toLowerCase().includes("pescetar")) mainBreakdown.pescetarian += quantity;
+						else mainBreakdown.classic += quantity;
+					}
+				});
+				starterMissing.textContent = `${missing.starter} pax`;
+				mainMissing.textContent = `${missing.main} pax`;
+				mainMissingClassic.textContent = `${mainBreakdown.classic} klassisk`;
+				mainMissingPescetarian.textContent = `${mainBreakdown.pescetarian} pescetar`;
+				dessertMissing.textContent = `${missing.dessert} pax`;
+				kitchenCount.textContent = `${groupedOrders.size} ${groupedOrders.size === 1 ? "bord" : "borde"}`;
+				emptyKitchen.classList.toggle("hidden", activeOrders.length > 0);
+				kitchenOrdersElement.innerHTML = Array.from(groupedOrders.values())
+					.map(
+						(group) => `<article class="min-h-[260px] rounded-2xl border-slate-200 bg-white p-6 shadow-sm">
+					<div class="flex items-center justify-between border-slate-200"><h3 class="font-display text-3xl font-bold text-slate-900">Bord ${escapeHtml(group.tableId)}</h3></div>
+					<div class="mt-5 space-y-4">${Array.from(group.courses.entries())
+						.map(([courseKey, courseOrders]) => {
+							const firstOrder = courseOrders[0][1];
+							const isStarter = courseKey === "starter";
+							const isMain = courseKey === "main";
+							const colors = isStarter
+								? "border-amber-300 bg-amber-50 text-amber-950"
+								: isMain
+									? "border-sky-300 bg-sky-50 text-sky-950"
+									: "border-emerald-300 bg-emerald-50 text-emerald-950";
+							const regularQuantity = courseOrders
+								.filter(([, order]) => !order.course.toLowerCase().includes("pescetar"))
+								.reduce((total, [, order]) => total + (Number(order.quantity) || 0), 0);
+							const pescetarianQuantity = courseOrders
+								.filter(([, order]) => order.course.toLowerCase().includes("pescetar"))
+								.reduce((total, [, order]) => total + (Number(order.quantity) || 0), 0);
+							return `<div class="rounded-xl border-2 p-5 ${colors}"><div class="flex flex-wrap items-center justify-between gap-4"><div><p class="text-xl font-bold">${escapeHtml(firstOrder.course.replace(/ · pescetarisk/gi, ""))}</p><p class="mt-1 text-4xl font-bold">${regularQuantity + pescetarianQuantity}<span class="ml-2 text-base font-normal">pax</span></p>${pescetarianQuantity ? `<p class="mt-2 text-base font-bold">${pescetarianQuantity} pescetar${regularQuantity ? ` · ${regularQuantity} klassisk` : ""}</p>` : ""}</div><button data-complete-course="${escapeHtml(courseKey)}" data-complete-table="${escapeHtml(group.tableId)}" class="min-h-14 w-full rounded-xl bg-slate-900 px-5 py-4 text-lg font-bold text-white shadow-sm transition hover:bg-slate-700 sm:w-auto sm:min-w-32">Tryk ud</button></div></div>`;
+						})
+						.join("")}</div>
+					${group.note ? `<p class="mt-4 border-t border-slate-200 pt-3 text-sm font-semibold text-slate-600">${escapeHtml(group.note)}</p>` : ""}
+				</article>`,
+					)
+					.join("");
+				kitchenOrdersElement
+					.querySelectorAll("[data-complete-course]")
+					.forEach((button) => button.addEventListener("click", () => completeCourse(button.dataset.completeTable, button.dataset.completeCourse)));
+			}
+			function setView(view) {
+				activeView = view;
+				tablesGrid.classList.toggle("hidden", view !== "tables");
+				kitchenView.classList.toggle("hidden", view !== "kitchen");
+				document.querySelector("#statusLegend").classList.toggle("hidden", view === "kitchen");
+				kitchenSummary.classList.remove("hidden");
+				document.querySelector("#roomHotbar").classList.toggle("hidden", view === "kitchen");
+				kitchenToggle.textContent = view === "kitchen" ? "Bordoversigt" : "Åbn køkken";
+				if (view === "kitchen") renderKitchen();
+			}
+			async function completeCourse(tableId, courseKey) {
+				const orderIds = Object.entries(kitchenOrders)
+					.filter(([, order]) => order.status === "pending" && String(order.tableId) === String(tableId) && getCourseKey(order.course) === courseKey)
+					.map(([id]) => id);
+				for (const orderId of orderIds) await completeOrder(orderId);
+			}
+			async function completeOrder(orderId) {
+				const order = kitchenOrders[orderId];
+				if (!order) return;
+				const completedAt = Date.now();
+				kitchenOrders[orderId] = { ...order, status: "completed", completedAt };
+				renderKitchen();
+				if (order.readyStatus) {
+					tables[order.tableId] = { ...(tables[order.tableId] || fallbackTables[order.tableId]), status: order.readyStatus };
+					renderTables();
+				}
+				if (window.database) {
+					const changes = { [`kitchenOrders/${orderId}/status`]: "completed", [`kitchenOrders/${orderId}/completedAt`]: completedAt };
+					if (order.readyStatus) changes[`tables/${order.tableId}/status`] = order.readyStatus;
+					await update(ref(window.database), changes);
+				}
+			}
+			function getRoomName(tableId) {
+				return rooms.find((room) => room.tables.includes(Number(tableId)))?.name || "";
+			}
+			async function createKitchenOrder(tableId, quantity, note, course, readyStatus = "") {
+				const timestamp = Date.now();
+				const order = {
+					tableId: Number(tableId),
+					room: getRoomName(tableId),
+					course,
+					quantity,
+					note,
+					status: "pending",
+					readyStatus,
+					createdAt: timestamp,
+				};
+				if (window.database) {
+					const orderId = push(ref(window.database, "kitchenOrders")).key;
+					await update(ref(window.database), { [`kitchenOrders/${orderId}`]: order });
+				} else {
+					kitchenOrders[`demo-${timestamp}`] = order;
+					renderKitchen();
+				}
+			}
+			async function createInitialKitchenOrders(tableId, quantity, note, pescetarianQuantity) {
+				const regularQuantity = Math.max(0, quantity - pescetarianQuantity);
+				if (regularQuantity > 0) await createKitchenOrder(tableId, regularQuantity, note, "Forret", "starter_ready");
+				if (pescetarianQuantity > 0) await createKitchenOrder(tableId, pescetarianQuantity, note, "Forret · pescetarisk", "starter_ready");
+			}
+
+			function escapeHtml(value) {
+				return String(value).replace(
+					/[&<>"']/g,
+					(character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[character],
+				);
+			}
+			function openModal(id) {
+				activeTableId = id;
+				const table = tables[id] || fallbackTables[id];
+				document.querySelector("#modalTitle").textContent = `Bord ${id}`;
+				guestCount.value = Number(table.guests) || 0;
+				tableNote.value = table.note || "";
+				const extras = table.extras || {};
+				pescetarianCount.value = Number(extras.pescetarianQuantity) || 0;
+				extraWine.checked = Boolean(extras.wine);
+				extraPescetarianWine.checked = Boolean(extras.pescetarianWine);
+				extraWelcomeDrink.checked = Boolean(extras.welcomeDrink);
+				updateStatusButtons(table.status);
+				saveMessage.textContent = "";
+				modal.classList.remove("hidden");
+				modal.classList.add("flex");
+				guestCount.focus();
+			}
+			function updateStatusButtons(currentStatus) {
+				const nextStatus =
+					{
+						empty: "seated",
+						seated: "seated",
+						starter_ready: "starter_served",
+						starter_served: "starter_served",
+						main_ready: "main_served",
+						main_served: "main_served",
+						dessert_ready: "dessert_served",
+						dessert_served: "dessert_served",
+					}[currentStatus] || "seated";
+				document.querySelectorAll(".status-button").forEach((button) => {
+					const isNext = button.dataset.status === nextStatus;
+					button.classList.toggle("status-button-next", isNext);
+					button.classList.toggle("status-button-muted", !isNext && button.dataset.status !== "empty");
+				});
+			}
+			function closeModal() {
+				modal.classList.add("hidden");
+				modal.classList.remove("flex");
+				activeTableId = null;
+			}
+			async function saveNote() {
+				if (!activeTableId) return;
+				const tableId = activeTableId;
+				const note = tableNote.value.trim();
+				const guestQuantity = Math.max(0, Number(guestCount.value) || 0);
+				const extras = {
+					pescetarianQuantity: Math.min(guestQuantity, Math.max(0, Number(pescetarianCount.value) || 0)),
+					wine: extraWine.checked,
+					pescetarianWine: extraPescetarianWine.checked,
+					welcomeDrink: extraWelcomeDrink.checked,
+				};
+				tables[tableId] = { ...(tables[tableId] || fallbackTables[tableId]), guests: guestQuantity, note, extras };
+				const changes = { [`tables/${tableId}/guests`]: guestQuantity, [`tables/${tableId}/note`]: note, [`tables/${tableId}/extras`]: extras };
+				Object.entries(kitchenOrders).forEach(([orderId, order]) => {
+					if (Number(order.tableId) === Number(tableId) && order.status === "pending") {
+						kitchenOrders[orderId] = { ...order, note };
+						changes[`kitchenOrders/${orderId}/note`] = note;
+					}
+				});
+				renderTables();
+				renderKitchen();
+				saveMessage.textContent = "Gemmer note...";
+				try {
+					if (window.database) await update(ref(window.database), changes);
+					saveMessage.textContent = "Gemt";
+					setTimeout(closeModal, 250);
+				} catch (error) {
+					console.error(error);
+					saveMessage.textContent = "Kunne ikke gemme note.";
+				}
+			}
+			async function saveTable(status) {
+				if (!activeTableId) return;
+				const tableId = activeTableId;
+				const guestQuantity = Math.max(0, Number(guestCount.value) || 0);
+				const selectedPescetarianQuantity = Math.min(guestQuantity, Math.max(0, Number(pescetarianCount.value) || 0));
+				const values = {
+					status,
+					guests: guestQuantity,
+					note: tableNote.value.trim(),
+					extras: {
+						pescetarianQuantity: selectedPescetarianQuantity,
+						wine: extraWine.checked,
+						pescetarianWine: extraPescetarianWine.checked,
+						welcomeDrink: extraWelcomeDrink.checked,
+					},
+				};
+				if (status === "starter_served") values.extras.welcomeDrink = false;
+				tables[activeTableId] = values;
+				renderTables();
+				saveMessage.textContent = "Gemmer...";
+				try {
+					if (status === "empty") {
+						const changes = { [`tables/${tableId}`]: { status: "empty", guests: 0, note: "", extras: {} } };
+						Object.entries(kitchenOrders).forEach(([orderId, order]) => {
+							if (Number(order.tableId) === Number(tableId) && order.status === "pending") changes[`kitchenOrders/${orderId}/status`] = "cancelled";
+						});
+						Object.entries(kitchenOrders).forEach(([orderId, order]) => {
+							if (Number(order.tableId) === Number(tableId) && order.status === "pending") kitchenOrders[orderId] = { ...order, status: "cancelled" };
+						});
+						tables[tableId] = { status: "empty", guests: 0, note: "", extras: {} };
+						if (window.database) await update(ref(window.database), changes);
+						renderTables();
+						renderKitchen();
+					} else {
+						if (window.database) await update(ref(window.database, `tables/${tableId}`), values);
+						if (status === "seated") await createInitialKitchenOrders(tableId, values.guests, values.note, selectedPescetarianQuantity);
+						if (status === "starter_served") {
+							const regularQuantity = Math.max(0, values.guests - selectedPescetarianQuantity);
+							if (regularQuantity > 0) await createKitchenOrder(tableId, regularQuantity, values.note, "Hovedret", "main_ready");
+							if (selectedPescetarianQuantity > 0)
+								await createKitchenOrder(tableId, selectedPescetarianQuantity, values.note, "Hovedret · pescetarisk", "main_ready");
+						}
+						if (status === "main_served") {
+							const regularQuantity = Math.max(0, values.guests - selectedPescetarianQuantity);
+							if (regularQuantity > 0) await createKitchenOrder(tableId, regularQuantity, values.note, "Dessert", "dessert_ready");
+							if (selectedPescetarianQuantity > 0)
+								await createKitchenOrder(tableId, selectedPescetarianQuantity, values.note, "Dessert · pescetarisk", "dessert_ready");
+						}
+					}
+					saveMessage.textContent = "Gemt";
+					setTimeout(closeModal, 350);
+				} catch (error) {
+					console.error(error);
+					saveMessage.textContent = "Kunne ikke gemme. Tjek Firebase-konfigurationen.";
+				}
+			}
+
+			document.querySelector("#closeModal").addEventListener("click", closeModal);
+			document.querySelector("#closeModalBottom").addEventListener("click", closeModal);
+			saveNoteButton.addEventListener("click", saveNote);
+			document.querySelector("#settingsToggle").addEventListener("click", openSettings);
+			document.querySelector("#closeSettings").addEventListener("click", closeSettings);
+			document.querySelector("#addRoom").addEventListener("click", () => {
+				settingsRooms.push({ id: `room-${Date.now()}`, name: "Nyt lokale", count: 1, accent: "text-slate-700", line: "bg-slate-500" });
+				renderSettingsRows();
+			});
+			document.querySelector("#saveSettings").addEventListener("click", saveSettings);
+			document.querySelector("#resetAllTables").addEventListener("click", resetAllTables);
+			kitchenToggle.addEventListener("click", () => setView(activeView === "kitchen" ? "tables" : "kitchen"));
+			document.querySelectorAll(".status-button").forEach((button) =>
+				button.addEventListener("click", () => {
+					const currentStatus = tables[activeTableId]?.status || "empty";
+					const nextStatus =
+						{
+							empty: "seated",
+							seated: "seated",
+							starter_ready: "starter_served",
+							starter_served: "starter_served",
+							main_ready: "main_served",
+							main_served: "main_served",
+							dessert_ready: "dessert_served",
+							dessert_served: "dessert_served",
+						}[currentStatus] || "seated";
+					const isOutOfSequence = button.dataset.status !== nextStatus && button.dataset.status !== "empty";
+					const message =
+						button.dataset.status === "empty"
+							? "Er du sikker på, at bordet skal gøres ledigt?"
+							: "Dette følger ikke den normale rækkefølge. Er du sikker på, at du vil fortsætte?";
+					if (isOutOfSequence || button.dataset.status === "empty") {
+						if (!window.confirm(message)) return;
+					}
+					saveTable(button.dataset.status);
+				}),
+			);
+			modal.addEventListener("click", (event) => {
+				if (event.target === modal) closeModal();
+			});
+			document.addEventListener("keydown", (event) => {
+				if (event.key === "Escape") closeModal();
+			});
+			renderRoomHotbar();
+			renderTables();
+			renderKitchen();
+			setView("tables");
+			updateRoomHotbar(rooms[0]?.id);
+
+			const hasFirebaseConfig = !firebaseConfig.apiKey.startsWith("INDSAET") && !firebaseConfig.projectId.startsWith("DIT-");
+			if (hasFirebaseConfig) {
+				try {
+					const app = initializeApp(firebaseConfig);
+					window.database = getDatabase(app);
+					onValue(ref(window.database, "tables"), (snapshot) => {
+						tables = { ...fallbackTables, ...(snapshot.val() || {}) };
+						renderTables();
+						document.querySelector("#connectionDot").className = "status-dot h-3 w-3 rounded-full bg-emerald-500";
+						document.querySelector("#connectionLabel").textContent = "Live";
+					});
+					onValue(ref(window.database, "settings/rooms"), (snapshot) => {
+						const savedRooms = snapshot.val();
+						if (Array.isArray(savedRooms) && savedRooms.length) {
+							settingsRooms = savedRooms
+								.map((room, index) => ({
+									id: room.id || `room-${index}`,
+									name: room.name || `Lokale ${index + 1}`,
+									count: Number(room.count) || 0,
+									accent: settingsRooms[index]?.accent || "text-slate-700",
+									line: settingsRooms[index]?.line || "bg-slate-500",
+									nav: room.nav || settingsRooms[index]?.nav || "bg-slate-200 text-slate-700",
+								}))
+								.filter((room) => room.count > 0);
+							rebuildRooms();
+							renderRoomHotbar();
+							renderTables();
+						}
+					});
+					onValue(ref(window.database, "kitchenOrders"), (snapshot) => {
+						kitchenOrders = snapshot.val() || {};
+						renderKitchen();
+					});
+				} catch (error) {
+					console.error(error);
+					document.querySelector("#connectionLabel").textContent = "Demo · Firebase mangler";
+				}
+			} else {
+				document.querySelector("#connectionDot").className = "status-dot h-3 w-3 rounded-full bg-amber-400";
+				document.querySelector("#connectionLabel").textContent = "Demo · indsæt nøgler";
+			}
+		</script>
+	</body>
+</html>
