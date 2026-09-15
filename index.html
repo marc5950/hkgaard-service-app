@@ -49,9 +49,11 @@
 					grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
 				}
 			}
-			.table-card:hover {
-				transform: translateY(-3px);
-				box-shadow: 0 14px 30px rgba(23, 32, 42, 0.14);
+			@media (min-width: 1280px) {
+				.table-card:hover {
+					transform: translateY(-3px);
+					box-shadow: 0 14px 30px rgba(23, 32, 42, 0.14);
+				}
 			}
 			/* Pulserende prik = køkkenet har meldt en ret klar */
 			.table-card-ready-dot {
