@@ -941,7 +941,10 @@
 				// Ventetid regnet fra den ældste ordre i retten. Over 15 min markeres rødt,
 				// så køkkenet kan se, hvilket bord der har ventet længst.
 				const waitedMinutes = minutesSince(Math.min(...courseOrders.map(([, order]) => order.createdAt || Date.now())));
-				const waitColors = waitedMinutes >= 15 ? "bg-rose-600 text-white" : "bg-white/70 text-slate-700";
+				// Ventetid skifter farve, hvis den har ventet 15 minutter og hvis den har ventet 30 minutter.
+				const waitColors =
+					waitedMinutes >= 20 ? "bg-rose-500 text-white" : waitedMinutes >= 10 ? "bg-yellow-500 text-white" : "bg-white/80 text-slate-700";
+				// Ventetid viser en advarsel, hvis den har ventet 15 minutter og en alvorlig advarsel, hvis den har ventet 30 minutter.
 				const waitBadge = `<span class="rounded-full px-2 py-1 text-xs font-bold ${waitColors}">${waitedMinutes} min</span>`;
 
 				return `<div class="rounded-xl border-2 p-5 ${colors}"><div class="flex flex-wrap items-center justify-between gap-4"><div><p class="flex items-center gap-2 text-xl font-bold">${escapeHtml(firstOrder.course.replace(/ · pescetarisk/gi, ""))}${waitBadge}</p><p class="mt-1 text-4xl font-bold">${regularQuantity + pescetarianQuantity}<span class="ml-2 text-base font-normal">pax</span></p>${pescetarianQuantity ? `<p class="mt-2 text-base font-bold">${pescetarianQuantity} pescetar${regularQuantity ? ` · ${regularQuantity} klassisk` : ""}</p>` : ""}</div><button data-complete-course="${escapeHtml(courseKey)}" data-complete-table="${escapeHtml(group.tableId)}" class="min-h-14 w-full rounded-xl bg-slate-900 px-5 py-4 text-lg font-bold text-white shadow-sm transition hover:bg-slate-700 sm:w-auto sm:min-w-32">Tryk ud</button></div></div>`;
