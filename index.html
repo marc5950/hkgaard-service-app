@@ -624,6 +624,34 @@
 				return Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
 			}
 
+			// Hvor mange sekunder har køkkenet haft ordren?
+			function secondsSince(timestamp) {
+				if (!timestamp) return 0;
+
+				return Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+			}
+
+			// Skriver et antal minutter som "42 min" eller, over en time, "1t 5m".
+			function formatDuration(minutes) {
+				if (minutes < 60) return `${minutes} min`;
+				return `${Math.floor(minutes / 60)}t ${minutes % 60}m`;
+			}
+
+			// Skriver et antal sekunder som "42s" eller, over et minut, "1m 5s".
+			function formatDurationWithSeconds(seconds) {
+				const minutes = Math.floor(seconds / 60);
+				const remainingSeconds = seconds % 60;
+
+				if (minutes < 60) {
+					return `${minutes}m ${remainingSeconds}s`;
+				}
+
+				const hours = Math.floor(minutes / 60);
+				const remainingMinutes = minutes % 60;
+
+				return `${hours}t ${remainingMinutes}m ${remainingSeconds}s`;
+			}
+
 			// Er ordren en pescetarisk variant?
 			function isPescetarianCourse(course) {
 				return String(course).toLowerCase().includes("pescetar");
@@ -862,7 +890,42 @@
 				// Prikken pulserer, når køkkenet har meldt en ret klar. Så længe den blinker,
 				// kan man klikke direkte på den for at markere retten som serveret – uden at
 				// åbne bordet og uden at det bestiller næste ret automatisk (se markCourseServed).
-				const readyDotClass = ["starter_ready", "main_ready", "dessert_ready"].includes(table.status) ? "table-card-ready-dot" : "";
+				const isReady = ["starter_ready", "main_ready", "dessert_ready"].includes(table.status);
+				const readyDotClass = isReady ? "table-card-ready-dot" : "";
+
+				// TIMER 1 af 2 – "Siddet siden": hvor længe bordet har haft gæster, regnet
+				// fra forretten blev bestilt. Løber uændret gennem hele måltidet og har
+				// ingen farveskift; den er kun til orientering. Vises i TOPPEN af kortet.
+				const seatedMinutes = !isEmpty && table.seatedAt ? minutesSince(table.seatedAt) : null;
+				const seatedTime =
+					!isEmpty && table.seatedAt
+						? new Date(table.seatedAt).toLocaleTimeString("da-DK", {
+								hour: "2-digit",
+								minute: "2-digit",
+							})
+						: null;
+				const seatedBadge =
+					seatedMinutes !== null
+						? `<span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500 sm:text-[11px]" title="Tid siden forretten blev bestilt">🕐${seatedTime} - ${formatDuration(seatedMinutes)}</span>`
+						: "";
+
+				// TIMER 2 af 2 – "Klar i": hvor længe en ret har stået klar og ventet på at
+				// blive kørt ud. Skifter farve ved 1 og 3 minutter, så en glemt tallerken er
+				// til at få øje på. Vises i BUNDEN af kortet, adskilt fra sidde-timeren
+				// ovenfor, så de to ikke kan forveksles.
+				const readySeconds = isReady && table.readySince ? secondsSince(table.readySince) : null;
+				const readyColor =
+					readySeconds === null
+						? ""
+						: readySeconds >= 180
+							? "bg-rose-500 text-white"
+							: readySeconds >= 60
+								? "bg-yellow-500 text-amber-950"
+								: "bg-emerald-100 text-emerald-800";
+				const readyBadge =
+					readySeconds !== null
+						? `<span class="shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${readyColor} sm:text-xs" title="Tid siden maden blev meldt klar">${formatDurationWithSeconds(readySeconds)}</span>`
+						: "";
 
 				const extraIcons = [
 					extras.welcomeDrink && `<span title="Velkomstdrink" aria-label="Velkomstdrink">🥂</span>`,
@@ -870,7 +933,7 @@
 					extras.pescetarianWine && `<span title="Vinmenu til pescetar" aria-label="Vinmenu til pescetar">🐟🍷</span>`,
 				].filter(Boolean);
 
-				const details = `<div class="mt-1 flex items-start justify-between gap-2"><div class="min-w-0 flex-1">${pescetarianQuantity ? `<p class="text-[11px] font-bold text-amber-800 sm:text-xs">${pescetarianQuantity} pescetar</p>` : ""}${table.note ? `<p class="mt-1 max-w-full truncate text-[11px] font-semibold text-slate-600 sm:text-xs" title="${escapeHtml(table.note)}">${escapeHtml(table.note)}</p>` : ""}</div><span class="shrink-0 rounded-full px-2 py-1 text-[10px] font-bold leading-tight ${status.badge} sm:text-xs">${status.label}</span></div>`;
+				const details = `<div class="mt-1 flex items-start justify-between gap-2"><div class="min-w-0 flex-1">${pescetarianQuantity ? `<p class="text-[11px] font-bold text-amber-800 sm:text-xs">${pescetarianQuantity} pescetar</p>` : ""}${table.note ? `<p class="mt-1 max-w-full truncate text-[11px] font-semibold text-slate-600 sm:text-xs" title="${escapeHtml(table.note)}">${escapeHtml(table.note)}</p>` : ""}</div><div class="flex shrink-0 items-center gap-1.5">${readyBadge}<span class="shrink-0 rounded-full px-2 py-1 text-[10px] font-bold leading-tight ${status.badge} sm:text-xs">${status.label}</span></div></div>`;
 
 				// Er retten klar, får prikken en større, usynlig tap-flade omkring sig
 				// (data-quick-serve), så den er nem at ramme på en telefon.
@@ -879,7 +942,7 @@
 					: `<span class="h-2.5 w-2.5 shrink-0 rounded-full ${status.dot}" title="${status.label}"></span>`;
 
 				return `<button class="table-card ${isEmpty ? "table-card-empty" : ""} rounded-xl border-2 px-3 py-2 text-left shadow-sm ${status.card}" data-table-id="${id}">
-					<div class="flex items-center justify-between gap-2"><span class="font-display text-base font-bold text-slate-900 sm:text-lg">Bord ${id} <span class="font-sans text-xs font-bold text-slate-500 sm:text-sm">·  ${table.status === "empty" ? "Ledigt" : `${toQuantity(table.guests)} pax`}</span></span><div class="flex items-center gap-2"><span class="text-sm" aria-hidden="true">${extraIcons.join(" ")}</span>${dot}</div></div>
+					<div class="flex items-center justify-between gap-2"><span class="font-display flex flex-wrap items-center gap-1.5 text-base font-bold text-slate-900 sm:text-lg">Bord ${id} <span class="font-sans text-xs font-bold text-slate-500 sm:text-sm">·  ${table.status === "empty" ? "Ledigt" : `${toQuantity(table.guests)} pax`}</span>${seatedBadge}</span><div class="flex items-center gap-2"><span class="text-sm" aria-hidden="true">${extraIcons.join(" ")}</span>${dot}</div></div>
 					${isEmpty ? "" : details}
 				</button>`;
 			}
@@ -1014,23 +1077,32 @@
 				for (const orderId of orderIds) await completeOrder(orderId);
 			}
 
-			// Markerer én ordre som færdig og sætter bordets status til fx "Forret klar".
+			// Markerer én ordre som færdig: sætter bordets status til fx "Forret klar",
+			// og fjerner selve ordren helt i stedet for blot at flagge den "completed" –
+			// ellers vokser kitchenOrders i Firebase med afsluttede ordrer for evigt.
 			async function completeOrder(orderId) {
 				const order = kitchenOrders[orderId];
 				if (!order) return;
 
-				const completedAt = Date.now();
-				kitchenOrders[orderId] = { ...order, status: "completed", completedAt };
+				delete kitchenOrders[orderId];
 				renderKitchen();
 
 				if (order.readyStatus) {
-					tables[order.tableId] = { ...(tables[order.tableId] || fallbackTables[order.tableId]), status: order.readyStatus };
+					const currentTable = tables[order.tableId] || fallbackTables[order.tableId] || emptyTable;
+					// To ordrer (klassisk + pescetarisk) rammer tit denne funktion lige efter
+					// hinanden for samme ret – står bordet allerede i denne "klar"-status,
+					// genbruges det oprindelige tidspunkt i stedet for at nulstille timeren.
+					const readySince = currentTable.status === order.readyStatus ? currentTable.readySince : Date.now();
+					tables[order.tableId] = { ...currentTable, status: order.readyStatus, readySince };
 					renderTables();
 				}
 
 				if (window.database) {
-					const changes = { [`kitchenOrders/${orderId}/status`]: "completed", [`kitchenOrders/${orderId}/completedAt`]: completedAt };
-					if (order.readyStatus) changes[`tables/${order.tableId}/status`] = order.readyStatus;
+					const changes = { [`kitchenOrders/${orderId}`]: null };
+					if (order.readyStatus) {
+						changes[`tables/${order.tableId}/status`] = order.readyStatus;
+						changes[`tables/${order.tableId}/readySince`] = tables[order.tableId].readySince;
+					}
 					await update(ref(window.database), changes);
 				}
 			}
@@ -1198,15 +1270,15 @@
 				}
 			}
 
-			// Rydder bordet: status tilbage til tomt, og bordets ventende ordrer annulleres,
-			// så køkkenet ikke laver mad til et bord, der er gået.
+			// Rydder bordet: status tilbage til tomt, og bordets ventende ordrer fjernes helt,
+			// så køkkenet ikke laver mad til et bord, der er gået, og de ikke ophober sig i Firebase.
 			async function clearTable(tableId) {
 				const changes = { [`tables/${tableId}`]: { ...emptyTable } };
 
 				Object.entries(kitchenOrders).forEach(([orderId, order]) => {
 					if (Number(order.tableId) === Number(tableId) && order.status === "pending") {
-						kitchenOrders[orderId] = { ...order, status: "cancelled" };
-						changes[`kitchenOrders/${orderId}/status`] = "cancelled";
+						delete kitchenOrders[orderId];
+						changes[`kitchenOrders/${orderId}`] = null;
 					}
 				});
 
@@ -1221,9 +1293,17 @@
 			// Bruges både af "Gem"-knapperne i modalen (saveTable) og af genvejen,
 			// hvor man klikker direkte på den blinkende prik (markCourseServed).
 			async function applyTableStatus(tableId, status, { guests, note, extras }) {
+				const previousTable = tables[tableId] || fallbackTables[tableId] || emptyTable;
 				const values = { status, guests: toQuantity(guests), note: note || "", extras: { ...(extras || {}) } };
 				// Velkomstdrinken er serveret, når forretten er kørt ud.
 				if (status === "starter_served") values.extras.welcomeDrink = false;
+
+				// TIMER 1: "seatedAt" sættes første gang bordet får gæster (forret bestilt)
+				// og bevares uændret resten af måltidet, så kortet kan vise den samlede tid.
+				// TIMER 2: "readySince" hører kun til mens en ret rent faktisk står og venter
+				// på at blive kørt ud – forlader man en "_ready"-status, ryddes den igen.
+				values.seatedAt = status === "empty" ? null : previousTable.seatedAt || Date.now();
+				values.readySince = null;
 
 				tables[tableId] = values;
 				renderTables();
@@ -1362,10 +1442,11 @@
 			setView(window.location.hash === "#kokken" ? "kitchen" : "tables");
 			updateRoomHotbar(rooms[0]?.id);
 
-			// Ventetiderne i køkkenkøen tikker videre af sig selv.
+			// Ventetiderne i køkkenkøen og de to timere på bordkortene tikker videre af sig selv.
 			setInterval(() => {
+				renderTables();
 				if (activeView === "kitchen") renderKitchen();
-			}, 30000);
+			}, 10000);
 
 			// Er der rigtige nøgler i firebaseConfig, eller kører vi demo?
 			const hasFirebaseConfig = !firebaseConfig.apiKey.startsWith("INDSAET") && !firebaseConfig.projectId.startsWith("DIT-");
