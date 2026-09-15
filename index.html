@@ -257,7 +257,7 @@
 							<button
 								data-status="seated"
 								class="status-button rounded-lg bg-rose-600 px-3 py-2 text-left text-sm font-bold text-white transition hover:bg-rose-700">
-								Kør forret
+								Bestil forret
 							</button>
 							<button
 								data-status="starter_served"
@@ -1080,9 +1080,11 @@
 				const extras = table.extras || {};
 
 				modalTitle.textContent = `Bord ${id}`;
-				guestCount.value = toQuantity(table.guests);
+				// Ved 0 gæster (nyt/tomt bord) lades feltet stå tomt i stedet for at vise "0" -
+				// ellers skal man først slette et 0-tal, før man kan skrive det rigtige antal.
+				guestCount.value = table.guests > 0 ? table.guests : "";
 				tableNote.value = table.note || "";
-				pescetarianCount.value = toQuantity(extras.pescetarianQuantity);
+				pescetarianCount.value = extras.pescetarianQuantity > 0 ? extras.pescetarianQuantity : "";
 				extraWine.checked = Boolean(extras.wine);
 				extraPescetarianWine.checked = Boolean(extras.pescetarianWine);
 				extraWelcomeDrink.checked = Boolean(extras.welcomeDrink);
