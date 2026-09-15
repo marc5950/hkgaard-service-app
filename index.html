@@ -250,6 +250,9 @@
 						     data-status skal matche nøglerne i statuses/courseByStatus i JS. -->
 						<p class="mb-2 text-sm font-bold text-slate-700">Opdater status</p>
 						<p id="statusHint" class="mb-3 hidden rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600" role="status"></p>
+						<!-- To slags knapper: mørke/farvede knapper SENDER en bestilling til
+						     køkkenet (Kør forret, Bestil hovedret, Bestil dessert). Lyse
+						     knapper markerer blot en ret som serveret UDEN at bestille noget. -->
 						<div class="grid grid-cols-2 gap-2">
 							<button
 								data-status="seated"
@@ -258,18 +261,28 @@
 							</button>
 							<button
 								data-status="starter_served"
-								class="status-button rounded-lg bg-amber-400 px-3 py-2 text-left text-sm font-bold text-amber-950 transition hover:bg-amber-500">
-								Kør hovedret
+								class="status-button rounded-lg bg-amber-200 px-3 py-2 text-left text-sm font-bold text-amber-950 transition hover:bg-amber-300">
+								Forret serveret
+							</button>
+							<button
+								data-status="main_ordered"
+								class="status-button rounded-lg bg-sky-600 px-3 py-2 text-left text-sm font-bold text-white transition hover:bg-sky-700">
+								Bestil hovedret
 							</button>
 							<button
 								data-status="main_served"
-								class="status-button rounded-lg bg-sky-600 px-3 py-2 text-left text-sm font-bold text-white transition hover:bg-sky-700">
-								Kør dessert
+								class="status-button rounded-lg bg-sky-200 px-3 py-2 text-left text-sm font-bold text-sky-950 transition hover:bg-sky-300">
+								Hovedret serveret
+							</button>
+							<button
+								data-status="dessert_ordered"
+								class="status-button rounded-lg bg-emerald-600 px-3 py-2 text-left text-sm font-bold text-white transition hover:bg-emerald-700">
+								Bestil dessert
 							</button>
 							<button
 								data-status="dessert_served"
-								class="status-button rounded-lg bg-emerald-600 px-3 py-2 text-left text-sm font-bold text-white transition hover:bg-emerald-700">
-								Dessert kørt
+								class="status-button rounded-lg bg-emerald-200 px-3 py-2 text-left text-sm font-bold text-emerald-950 transition hover:bg-emerald-300">
+								Dessert serveret
 							</button>
 							<button
 								data-status="empty"
@@ -403,24 +416,36 @@
 			---------------------------------------------------------------------------- */
 
 			// Alle mulige bordstatusser og de farver, de vises med.
-			// "..._ready"  = køkkenet har meldt retten klar (bordkortet blinker)
-			// "..._served" = tjeneren har kørt retten ud og bestilt den næste
+			// Hver ret har tre trin: "..._ordered" (bestilt, venter på køkkenet, ingen
+			// knap er aktiv), "..._ready" (køkkenet har meldt den klar – bordkortets
+			// prik blinker) og "..._served" (kørt ud til bordet, INGEN ny bestilling
+			// sendt endnu). Det sidste trin findes bevidst, fordi der ofte går tid,
+			// før bordet er klar til næste ret – se courseByStatus nedenfor.
+			// "seated" er en undtagelse: det er selve forretbestillingen, og findes
+			// derfor ikke som "..._ordered", da bordet ikke har en status før den.
 			const statuses = {
 				empty: { label: "Ledigt / Afrydet", card: "border-slate-300 bg-slate-200", badge: "bg-slate-200 text-slate-700", dot: "bg-slate-400" },
 				seated: { label: "Forret bestilt", card: "border-rose-200 bg-rose-50", badge: "bg-rose-100 text-rose-800", dot: "bg-rose-500" },
 				starter_ready: { label: "Forret klar", card: "border-amber-200 bg-amber-50", badge: "bg-amber-100 text-amber-800", dot: "bg-amber-500" },
 				starter_served: {
-					label: "Forret kørt · Hovedret bestilt",
+					label: "Forret serveret",
 					card: "border-amber-200 bg-amber-50",
 					badge: "bg-amber-100 text-amber-800",
 					dot: "bg-amber-500",
 				},
+				main_ordered: { label: "Hovedret bestilt", card: "border-sky-200 bg-sky-50", badge: "bg-sky-100 text-sky-800", dot: "bg-sky-500" },
 				main_ready: { label: "Hovedret klar", card: "border-sky-200 bg-sky-50", badge: "bg-sky-100 text-sky-800", dot: "bg-sky-500" },
 				main_served: {
-					label: "Hovedret kørt · Dessert bestilt",
+					label: "Hovedret serveret",
 					card: "border-sky-200 bg-sky-50",
 					badge: "bg-sky-100 text-sky-800",
 					dot: "bg-sky-500",
+				},
+				dessert_ordered: {
+					label: "Dessert bestilt",
+					card: "border-emerald-200 bg-emerald-50",
+					badge: "bg-emerald-100 text-emerald-800",
+					dot: "bg-emerald-500",
 				},
 				dessert_ready: {
 					label: "Dessert klar",
@@ -429,7 +454,7 @@
 					dot: "bg-emerald-500",
 				},
 				dessert_served: {
-					label: "Dessert kørt",
+					label: "Dessert serveret",
 					card: "border-emerald-200 bg-emerald-50",
 					badge: "bg-emerald-100 text-emerald-800",
 					dot: "bg-emerald-500",
@@ -437,16 +462,18 @@
 			};
 
 			// Den normale rækkefølge i servicen: nuværende status -> det næste logiske trin.
-			// null betyder "retten er sendt afsted – vi venter på køkkenet". Så er ingen
-			// knap det næste trin, alle knapper er nedtonede, og et klik kræver en
-			// bekræftelse (så man ikke kommer til at sende den samme ret to gange).
+			// null betyder "vi venter" (enten på køkkenet, eller på at bordet er klar
+			// til at bestille næste ret). Så er ingen knap det næste trin, alle knapper
+			// er nedtonede, og et klik kræver en bekræftelse.
 			const nextStatusByStatus = {
 				empty: "seated",
-				seated: null, // forret sendt
-				starter_ready: "starter_served",
-				starter_served: null, // hovedret sendt
+				seated: null, // venter på at køkkenet laver forretten
+				starter_ready: "starter_served", // prikken blinker: klik den for at markere serveret
+				starter_served: "main_ordered", // serveret – vent med at bestille hovedret til bordet er klar
+				main_ordered: null, // venter på at køkkenet laver hovedretten
 				main_ready: "main_served",
-				main_served: null, // dessert sendt
+				main_served: "dessert_ordered", // serveret – vent med at bestille dessert til bordet er klar
+				dessert_ordered: null, // venter på at køkkenet laver desserten
 				dessert_ready: "dessert_served",
 				dessert_served: null, // bordet har fået det hele
 			};
@@ -454,21 +481,24 @@
 			// Forklaringen der vises i modalen, når vi venter på køkkenet.
 			const waitingTextByStatus = {
 				seated: "Forretten er sendt til køkkenet. Vent på at køkkenet trykker den ud.",
-				starter_served: "Hovedretten er sendt til køkkenet. Vent på at køkkenet trykker den ud.",
-				main_served: "Desserten er sendt til køkkenet. Vent på at køkkenet trykker den ud.",
+				starter_ready: "Forretten er klar i køkkenet – kør den ud. Klik på den blinkende prik på bordkortet, når den er serveret.",
+				starter_served: "Forretten er serveret. Bestil hovedretten, når bordet er klar til det.",
+				main_ordered: "Hovedretten er sendt til køkkenet. Vent på at køkkenet trykker den ud.",
+				main_ready: "Hovedretten er klar i køkkenet – kør den ud. Klik på den blinkende prik på bordkortet, når den er serveret.",
+				main_served: "Hovedretten er serveret. Bestil desserten, når bordet er klar til det.",
+				dessert_ordered: "Desserten er sendt til køkkenet. Vent på at køkkenet trykker den ud.",
+				dessert_ready: "Desserten er klar i køkkenet – kør den ud. Klik på den blinkende prik på bordkortet, når den er serveret.",
 				dessert_served: "Bordet har fået alle retter. Gør bordet ledigt, når gæsterne er gået.",
-				starter_ready: "Forretten er klar i køkkenet – kør den ud, og bestil hovedret.",
-				main_ready: "Hovedretten er klar i køkkenet – kør den ud, og bestil dessert.",
-				dessert_ready: "Desserten er klar i køkkenet – kør den ud.",
 			};
 
-			// Hvilken ret der sendes til køkkenet, når man trykker på en statusknap.
-			// Statusser, der ikke står her (fx dessert_served), sender ingenting.
+			// Hvilken ret der sendes til køkkenet, når et bord når frem til denne status.
+			// Statusser, der ikke står her (fx starter_served), sender ingenting – det
+			// er netop pointen med "..._served"-trinnet: ingen bestilling før man beder om det.
 			// readyStatus = den status bordet får, når køkkenet trykker retten ud.
 			const courseByStatus = {
 				seated: { course: "Forret", readyStatus: "starter_ready" },
-				starter_served: { course: "Hovedret", readyStatus: "main_ready" },
-				main_served: { course: "Dessert", readyStatus: "dessert_ready" },
+				main_ordered: { course: "Hovedret", readyStatus: "main_ready" },
+				dessert_ordered: { course: "Dessert", readyStatus: "dessert_ready" },
 			};
 
 			// Farvevalg pr. lokale (bruges i opsætnings-modalen).
@@ -774,6 +804,23 @@
 
 				// Klik på et kort åbner bordet; klik på overskriften folder lokalet sammen.
 				tablesGrid.querySelectorAll("[data-table-id]").forEach((card) => card.addEventListener("click", () => openModal(card.dataset.tableId)));
+
+				// Klik (eller Enter/mellemrum) på den blinkende prik markerer retten som
+				// serveret med det samme. stopPropagation forhindrer, at klikket også
+				// åbner bordet, da prikken sidder inde i selve bordkortet.
+				tablesGrid.querySelectorAll("[data-quick-serve]").forEach((dot) => {
+					const trigger = (event) => {
+						event.stopPropagation();
+						markCourseServed(dot.dataset.quickServe);
+					};
+					dot.addEventListener("click", trigger);
+					dot.addEventListener("keydown", (event) => {
+						if (event.key === "Enter" || event.key === " ") {
+							event.preventDefault();
+							trigger(event);
+						}
+					});
+				});
 				tablesGrid.querySelectorAll("[data-room-toggle]").forEach((button) =>
 					button.addEventListener("click", () => {
 						const roomId = button.dataset.roomToggle;
@@ -809,7 +856,9 @@
 				const extras = table.extras || {};
 				const pescetarianQuantity = toQuantity(extras.pescetarianQuantity);
 
-				// Prikken pulserer, når køkkenet har meldt en ret klar.
+				// Prikken pulserer, når køkkenet har meldt en ret klar. Så længe den blinker,
+				// kan man klikke direkte på den for at markere retten som serveret – uden at
+				// åbne bordet og uden at det bestiller næste ret automatisk (se markCourseServed).
 				const readyDotClass = ["starter_ready", "main_ready", "dessert_ready"].includes(table.status) ? "table-card-ready-dot" : "";
 
 				const extraIcons = [
@@ -820,8 +869,14 @@
 
 				const details = `<div class="mt-1 flex items-start justify-between gap-2"><div class="min-w-0 flex-1">${pescetarianQuantity ? `<p class="text-[11px] font-bold text-amber-800 sm:text-xs">${pescetarianQuantity} pescetar</p>` : ""}${table.note ? `<p class="mt-1 max-w-full truncate text-[11px] font-semibold text-slate-600 sm:text-xs" title="${escapeHtml(table.note)}">${escapeHtml(table.note)}</p>` : ""}</div><span class="shrink-0 rounded-full px-2 py-1 text-[10px] font-bold leading-tight ${status.badge} sm:text-xs">${status.label}</span></div>`;
 
+				// Er retten klar, får prikken en større, usynlig tap-flade omkring sig
+				// (data-quick-serve), så den er nem at ramme på en telefon.
+				const dot = readyDotClass
+					? `<span class="-m-1.5 cursor-pointer rounded-full p-1.5 hover:bg-black/5" data-quick-serve="${id}" role="button" tabindex="0" aria-label="Marker ${status.label.toLowerCase()} som serveret"><span class="block h-2.5 w-2.5 rounded-full ${status.dot} ${readyDotClass}"></span></span>`
+					: `<span class="h-2.5 w-2.5 shrink-0 rounded-full ${status.dot}" title="${status.label}"></span>`;
+
 				return `<button class="table-card ${isEmpty ? "table-card-empty" : ""} rounded-xl border-2 px-3 py-2 text-left shadow-sm ${status.card}" data-table-id="${id}">
-					<div class="flex items-center justify-between gap-2"><span class="font-display text-base font-bold text-slate-900 sm:text-lg">Bord ${id} <span class="font-sans text-xs font-bold text-slate-500 sm:text-sm">· ${toQuantity(table.guests)} pax</span></span><div class="flex items-center gap-2"><span class="text-sm" aria-hidden="true">${extraIcons.join(" ")}</span><span class="h-2.5 w-2.5 shrink-0 rounded-full ${status.dot} ${readyDotClass}" title="${readyDotClass ? "Mad klar" : status.label}"></span></div></div>
+					<div class="flex items-center justify-between gap-2"><span class="font-display text-base font-bold text-slate-900 sm:text-lg">Bord ${id} <span class="font-sans text-xs font-bold text-slate-500 sm:text-sm">· ${toQuantity(table.guests)} pax</span></span><div class="flex items-center gap-2"><span class="text-sm" aria-hidden="true">${extraIcons.join(" ")}</span>${dot}</div></div>
 					${isEmpty ? "" : details}
 				</button>`;
 			}
@@ -938,13 +993,9 @@
 				const regularQuantity = sumQuantity(false);
 				const pescetarianQuantity = sumQuantity(true);
 
-				// Ventetid regnet fra den ældste ordre i retten. Over 15 min markeres rødt,
-				// så køkkenet kan se, hvilket bord der har ventet længst.
-				const waitedMinutes = minutesSince(Math.min(...courseOrders.map(([, order]) => order.createdAt || Date.now())));
 				// Ventetid skifter farve, hvis den har ventet 15 minutter og hvis den har ventet 30 minutter.
 				const waitColors =
 					waitedMinutes >= 20 ? "bg-rose-500 text-white" : waitedMinutes >= 10 ? "bg-yellow-500 text-white" : "bg-white/80 text-slate-700";
-				// Ventetid viser en advarsel, hvis den har ventet 15 minutter og en alvorlig advarsel, hvis den har ventet 30 minutter.
 				const waitBadge = `<span class="rounded-full px-2 py-1 text-xs font-bold ${waitColors}">${waitedMinutes} min</span>`;
 
 				return `<div class="rounded-xl border-2 p-5 ${colors}"><div class="flex flex-wrap items-center justify-between gap-4"><div><p class="flex items-center gap-2 text-xl font-bold">${escapeHtml(firstOrder.course.replace(/ · pescetarisk/gi, ""))}${waitBadge}</p><p class="mt-1 text-4xl font-bold">${regularQuantity + pescetarianQuantity}<span class="ml-2 text-base font-normal">pax</span></p>${pescetarianQuantity ? `<p class="mt-2 text-base font-bold">${pescetarianQuantity} pescetar${regularQuantity ? ` · ${regularQuantity} klassisk` : ""}</p>` : ""}</div><button data-complete-course="${escapeHtml(courseKey)}" data-complete-table="${escapeHtml(group.tableId)}" class="min-h-14 w-full rounded-xl bg-slate-900 px-5 py-4 text-lg font-bold text-white shadow-sm transition hover:bg-slate-700 sm:w-auto sm:min-w-32">Tryk ud</button></div></div>`;
@@ -1158,7 +1209,41 @@
 				renderKitchen();
 			}
 
-			// Gemmer bordet med en ny status og sender den tilhørende ret til køkkenet.
+			// Fælles logik for enhver statusændring: gemmer bordet, og udløser en ny
+			// bestilling i køkkenet, hvis statussen kræver det (se courseByStatus).
+			// Bruges både af "Gem"-knapperne i modalen (saveTable) og af genvejen,
+			// hvor man klikker direkte på den blinkende prik (markCourseServed).
+			async function applyTableStatus(tableId, status, { guests, note, extras }) {
+				const values = { status, guests: toQuantity(guests), note: note || "", extras: { ...(extras || {}) } };
+				// Velkomstdrinken er serveret, når forretten er kørt ud.
+				if (status === "starter_served") values.extras.welcomeDrink = false;
+
+				tables[tableId] = values;
+				renderTables();
+
+				if (status === "empty") {
+					await clearTable(tableId);
+					return values;
+				}
+
+				if (window.database) await update(ref(window.database, `tables/${tableId}`), values);
+
+				const nextCourse = courseByStatus[status];
+				if (nextCourse) {
+					const pescetarianQuantity = toQuantity(values.extras.pescetarianQuantity);
+					await createCourseOrders({
+						tableId,
+						course: nextCourse.course,
+						readyStatus: nextCourse.readyStatus,
+						note: values.note,
+						guests: values.guests,
+						pescetarianQuantity,
+					});
+				}
+				return values;
+			}
+
+			// Gemmer bordet med en ny status ud fra felterne i den åbne modal.
 			// SPÆRRING (logisk del): alt andet end "gør bordet ledigt" kræver mindst én gæst.
 			async function saveTable(status) {
 				if (!activeTableId) return;
@@ -1170,43 +1255,29 @@
 					return;
 				}
 
-				const pescetarianQuantity = getPescetarianQuantity();
-				const values = {
-					status,
-					guests: guestQuantity,
-					note: tableNote.value.trim(),
-					extras: readExtras(),
-				};
-				// Velkomstdrinken er serveret, når forretten er kørt ud.
-				if (status === "starter_served") values.extras.welcomeDrink = false;
-
-				tables[tableId] = values;
-				renderTables();
 				saveMessage.textContent = "Gemmer...";
-
 				try {
-					if (status === "empty") {
-						await clearTable(tableId);
-					} else {
-						if (window.database) await update(ref(window.database, `tables/${tableId}`), values);
-						// Nogle statusser udløser en ny bestilling i køkkenet – se courseByStatus.
-						const nextCourse = courseByStatus[status];
-						if (nextCourse) {
-							await createCourseOrders({
-								tableId,
-								course: nextCourse.course,
-								readyStatus: nextCourse.readyStatus,
-								note: values.note,
-								guests: guestQuantity,
-								pescetarianQuantity,
-							});
-						}
-					}
+					await applyTableStatus(tableId, status, { guests: guestQuantity, note: tableNote.value.trim(), extras: readExtras() });
 					saveMessage.textContent = "Gemt";
 					setTimeout(closeModal, 350);
 				} catch (error) {
 					console.error(error);
 					saveMessage.textContent = "Kunne ikke gemme. Tjek Firebase-konfigurationen.";
+				}
+			}
+
+			// Genvej: klik på den blinkende prik på et bordkort. Går ét skridt frem
+			// (fx starter_ready -> starter_served) UDEN at åbne bordet. Virker kun når
+			// bordet reelt venter på at blive markeret serveret, ellers sker intet.
+			async function markCourseServed(tableId) {
+				const table = tables[tableId];
+				const nextStatus = table && nextStatusByStatus[table.status];
+				if (!table || !nextStatus) return;
+				try {
+					await applyTableStatus(tableId, nextStatus, { guests: table.guests, note: table.note, extras: table.extras });
+				} catch (error) {
+					console.error(error);
+					renderTables(); // gendan kortet, hvis noget gik galt undervejs
 				}
 			}
 
