@@ -994,7 +994,9 @@
 				const regularQuantity = sumQuantity(false);
 				const pescetarianQuantity = sumQuantity(true);
 
-				// Ventetid skifter farve, hvis den har ventet 15 minutter og hvis den har ventet 30 minutter.
+				// Ventetid regnet fra den ældste ordre i retten. Skifter farve ved 10 og 20 minutter,
+				// så køkkenet kan se, hvilket bord der har ventet længst.
+				const waitedMinutes = minutesSince(Math.min(...courseOrders.map(([, order]) => order.createdAt || Date.now())));
 				const waitColors =
 					waitedMinutes >= 20 ? "bg-rose-500 text-white" : waitedMinutes >= 10 ? "bg-yellow-500 text-white" : "bg-white/80 text-slate-700";
 				const waitBadge = `<span class="rounded-full px-2 py-1 text-xs font-bold ${waitColors}">${waitedMinutes} min</span>`;
