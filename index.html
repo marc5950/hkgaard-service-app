@@ -122,16 +122,25 @@
 						class="h-[52px] w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-700 sm:w-44">
 						Åbn køkken
 					</button>
-					<button
-						id="settingsToggle"
-						class="h-[52px] w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 sm:w-44">
-						Opsætning
-					</button>
-					<button
-						id="importToggle"
-						class="h-[52px] w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 sm:w-52">
-						Importér reservationer
-					</button>
+					<div class="relative">
+						<button
+							id="adminMenuToggle"
+							class="h-[52px] w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 sm:w-36"
+							aria-haspopup="true"
+							aria-expanded="false">
+							Admin ▾
+						</button>
+						<div
+							id="adminMenu"
+							class="absolute right-0 z-40 mt-2 hidden w-56 flex-col gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+							<button id="settingsToggle" class="w-full rounded-lg px-3 py-2 text-left text-sm font-bold text-slate-700 hover:bg-slate-50">
+								Opsætning
+							</button>
+							<button id="importToggle" class="w-full rounded-lg px-3 py-2 text-left text-sm font-bold text-slate-700 hover:bg-slate-50">
+								Importér reservationer
+							</button>
+						</div>
+					</div>
 				</div>
 			</header>
 
@@ -182,13 +191,7 @@
 				</div>
 				<div id="kitchenDayTotals" class="mb-6 flex flex-wrap gap-2" aria-label="Total for hele dagen">
 					<span class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700"
-						>Forret i alt (dagen): <strong id="dayStarterTotal">0 pax</strong></span
-					>
-					<span class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700"
-						>Hovedret i alt (dagen): <strong id="dayMainTotal">0 pax</strong></span
-					>
-					<span class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700"
-						>Dessert i alt (dagen): <strong id="dayDessertTotal">0 pax</strong></span
+						>Pax for dagen (forret/hovedret/dessert): <strong id="dayTotalPax">0 pax</strong></span
 					>
 				</div>
 				<div id="kitchenOrders" class="grid gap-5 md:grid-cols-2 xl:grid-cols-3"></div>
@@ -248,7 +251,7 @@
 							</button>
 							<button
 								data-status="main_served"
-								class="status-button rounded-lg bg-sky-200 px-3 py-2 text-left text-sm font-bold text-sky-950 transition hover:bg-sky-300">
+								class="status-button rounded-lg bg-sky-500 px-3 py-2 text-left text-sm font-bold text-white transition hover:bg-sky-600">
 								Hovedret serveret
 							</button>
 							<button
@@ -258,7 +261,7 @@
 							</button>
 							<button
 								data-status="dessert_served"
-								class="status-button rounded-lg bg-emerald-200 px-3 py-2 text-left text-sm font-bold text-emerald-950 transition hover:bg-emerald-300">
+								class="status-button rounded-lg bg-emerald-500 px-3 py-2 text-left text-sm font-bold text-white transition hover:bg-emerald-600">
 								Dessert serveret
 							</button>
 							<button
@@ -315,12 +318,12 @@
 						&times;
 					</button>
 				</div>
-				<div class="space-y-4 p-4 sm:p-5">
+				<div class="space-y-3 p-4 sm:p-5">
 					<p class="text-sm text-slate-500">Navngiv lokalerne og deres farve. Borde kommer fra den daglige import.</p>
-					<div id="roomSettingsRows" class="space-y-2"></div>
+					<div id="roomSettingsRows" class="space-y-1.5"></div>
 					<button
 						id="addRoom"
-						class="w-full rounded-lg border-2 border-dashed border-slate-300 px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50">
+						class="inline-flex rounded-lg border-2 border-dashed border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50">
 						+ Tilføj lokale
 					</button>
 					<div class="border-t border-slate-200 pt-3">
@@ -368,7 +371,9 @@
 					<p class="text-sm text-slate-500">
 						Brug denne prompt sammen med den vedhæftede PDF (fx i ChatGPT) for at få JSON-formatet, og indsæt resultatet herunder:
 					</p>
-					<pre class="whitespace-pre-wrap rounded-lg bg-slate-100 p-3 font-mono text-xs text-slate-700" id="importPrompt">
+					<pre
+						class="max-w-full overflow-x-auto text-wrap break-all whitespace-pre-wrap rounded-lg bg-slate-100 p-3 font-mono text-xs text-slate-700"
+						id="importPrompt">
 Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver reservation skal indeholde time, table og pax.
 
 [{"time":"17:30","table":126,"name":"Henrik Oluf Pedersen","phone":"+4540425450","pax":8,"pescetar":2,"vinmenu":6,"drikmenu":0,"gt":0,"note":""}]</pre
@@ -614,9 +619,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			const mainMissingClassic = document.querySelector("#mainMissingClassic");
 			const mainMissingPescetarian = document.querySelector("#mainMissingPescetarian");
 			const dessertMissing = document.querySelector("#dessertMissing");
-			const dayStarterTotal = document.querySelector("#dayStarterTotal");
-			const dayMainTotal = document.querySelector("#dayMainTotal");
-			const dayDessertTotal = document.querySelector("#dayDessertTotal");
+			const dayTotalPax = document.querySelector("#dayTotalPax");
 
 			// Bord-modal
 			const modal = document.querySelector("#tableModal");
@@ -830,13 +833,13 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				settingsRows.innerHTML = settingsRooms
 					.map(
 						(room, index) =>
-							`<div class="grid grid-cols-[minmax(0,1fr)_100px_36px] items-center gap-2"><input data-room-name="${index}" value="${escapeHtml(room.name)}" class="min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" aria-label="Lokalnavn" /><select data-room-color="${index}" class="rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" aria-label="Lokale farve">${Object.entries(
+							`<div class="grid grid-cols-[minmax(0,1fr)_88px_28px] items-center gap-1.5"><input data-room-name="${index}" value="${escapeHtml(room.name)}" class="min-w-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm font-semibold outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" aria-label="Lokalnavn" /><select data-room-color="${index}" class="rounded-lg border border-slate-300 bg-white px-1.5 py-1.5 text-xs outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" aria-label="Lokale farve">${Object.entries(
 								roomColors,
 							)
 								.map(([key, color]) => `<option value="${key}" ${room.nav === color.nav ? "selected" : ""}>${color.label}</option>`)
 								.join(
 									"",
-								)}</select><button data-remove-room="${index}" class="rounded-lg p-2 text-lg font-bold text-slate-400 hover:bg-rose-50 hover:text-rose-700" aria-label="Fjern lokale">&times;</button></div>`,
+								)}</select><button data-remove-room="${index}" class="rounded-lg p-1.5 text-base font-bold text-slate-400 hover:bg-rose-50 hover:text-rose-700" aria-label="Fjern lokale">&times;</button></div>`,
 					)
 					.join("");
 				settingsRows.querySelectorAll("[data-remove-room]").forEach((button) =>
@@ -1268,65 +1271,60 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				return { activeOrders, groupedOrders };
 			}
 
-			// Tællerne øverst: forretter laves samlet for HELE holdet, så "Forret mangler"
-			// tæller kun de borde, der er ankommet men endnu ikke har fået "Forret serveret".
-			// Hovedret og dessert er hvor mange kuverter der reelt mangler at blive lavet.
-			function renderKitchenSummary(activeOrders) {
-				const missing = { main: 0, dessert: 0 };
-				const mainBreakdown = { classic: 0, pescetarian: 0 };
+			// Rækkefølgen en booking gennemgår – bruges til at afgøre, om en ret stadig mangler.
+			const COURSE_PROGRESS = {
+				empty: 0,
+				arrived: 1,
+				starter_served: 2,
+				main_ordered: 3,
+				main_ready: 4,
+				main_served: 5,
+				dessert_ordered: 6,
+				dessert_ready: 7,
+				dessert_served: 8,
+			};
 
-				activeOrders.forEach(([, order]) => {
-					const quantity = toQuantity(order.quantity);
-					const courseKey = getCourseKey(order.course);
-					missing[courseKey] += quantity;
-					if (courseKey === "main") {
-						if (isPescetarianCourse(order.course)) mainBreakdown.pescetarian += quantity;
-						else mainBreakdown.classic += quantity;
-					}
-				});
-
-				const starterTotals = Object.values(tables[selectedSlotKey] || {})
-					.filter((table) => table.status === "arrived")
-					.reduce(
-						(totals, table) => {
-							const pescetarian = toQuantity(table.extras?.pescetarianQuantity);
-							totals.pescetarian += pescetarian;
-							totals.classic += Math.max(0, toQuantity(table.guests) - pescetarian);
-							return totals;
-						},
-						{ classic: 0, pescetarian: 0 },
-					);
-
-				starterMissing.textContent = `${starterTotals.classic} klassisk · ${starterTotals.pescetarian} pescetar`;
-				mainMissing.textContent = `${missing.main} pax`;
-				mainMissingClassic.textContent = `${mainBreakdown.classic} klassisk`;
-				mainMissingPescetarian.textContent = `${mainBreakdown.pescetarian} pescetar`;
-				dessertMissing.textContent = `${missing.dessert} pax`;
-
-				// Dagens samlede antal kuverter (alle tre hold) – forret, hovedret og
-				// dessert er samme total, da hver gæst får præcis én af hver.
-				const dayTotal = TIME_SLOTS.map(slotKey).reduce(
-					(totals, key) => {
-						Object.values(tables[key] || {}).forEach((table) => {
-							const pescetarian = toQuantity(table.extras?.pescetarianQuantity);
-							totals.pescetarian += pescetarian;
-							totals.classic += Math.max(0, toQuantity(table.guests) - pescetarian);
-						});
+			// Lægger klassisk/pescetarisk pax sammen for de borde, der opfylder et filter.
+			function sumTablePax(tableList, predicate) {
+				return tableList.filter(predicate).reduce(
+					(totals, table) => {
+						const pescetarian = toQuantity(table.extras?.pescetarianQuantity);
+						totals.pescetarian += pescetarian;
+						totals.classic += Math.max(0, toQuantity(table.guests) - pescetarian);
 						return totals;
 					},
 					{ classic: 0, pescetarian: 0 },
 				);
-				const dayLabel = `${dayTotal.classic + dayTotal.pescetarian} pax (${dayTotal.classic} klassisk · ${dayTotal.pescetarian} pescetar)`;
-				dayStarterTotal.textContent = dayLabel;
-				dayMainTotal.textContent = dayLabel;
-				dayDessertTotal.textContent = dayLabel;
+			}
+
+			// Tællerne øverst: "mangler" viser, hvor mange kuverter af HELE holdet der
+			// stadig ikke har fået den pågældende ret serveret – tallet falder i takt med,
+			// at tjeneren trykker status videre (fx "Hovedret serveret").
+			function renderKitchenSummary() {
+				const slotTables = Object.values(tables[selectedSlotKey] || {}).filter((table) => !table.completedAt);
+
+				const starterTotals = sumTablePax(slotTables, (table) => COURSE_PROGRESS[table.status] < COURSE_PROGRESS.starter_served);
+				const mainTotals = sumTablePax(slotTables, (table) => COURSE_PROGRESS[table.status] < COURSE_PROGRESS.main_served);
+				const dessertTotals = sumTablePax(slotTables, (table) => COURSE_PROGRESS[table.status] < COURSE_PROGRESS.dessert_served);
+
+				starterMissing.textContent = `${starterTotals.classic} klassisk · ${starterTotals.pescetarian} pescetar`;
+				mainMissing.textContent = `${mainTotals.classic + mainTotals.pescetarian} pax`;
+				mainMissingClassic.textContent = `${mainTotals.classic} klassisk`;
+				mainMissingPescetarian.textContent = `${mainTotals.pescetarian} pescetar`;
+				dessertMissing.textContent = `${dessertTotals.classic + dessertTotals.pescetarian} pax`;
+
+				// Dagens samlede antal kuverter (alle tre hold) – forret, hovedret og
+				// dessert er samme total, da hver gæst får præcis én af hver.
+				const dayTables = TIME_SLOTS.flatMap((slot) => Object.values(tables[slotKey(slot)] || {}));
+				const dayTotal = sumTablePax(dayTables, () => true);
+				dayTotalPax.textContent = `${dayTotal.classic + dayTotal.pescetarian} pax (${dayTotal.classic} klassisk · ${dayTotal.pescetarian} pescetar)`;
 			}
 
 			// Tegner hele køkkenvisningen.
 			function renderKitchen() {
 				const { activeOrders, groupedOrders } = groupPendingOrders();
 
-				renderKitchenSummary(activeOrders);
+				renderKitchenSummary();
 				kitchenCount.textContent = `${groupedOrders.size} ${groupedOrders.size === 1 ? "bord" : "borde"}`;
 				emptyKitchen.classList.toggle("hidden", activeOrders.length > 0);
 
@@ -1743,8 +1741,30 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				if (event.key === "Escape") closeModal();
 			});
 
+			// Admin-menuen (Opsætning + Importér) i toppen.
+			const adminMenuToggle = document.querySelector("#adminMenuToggle");
+			const adminMenu = document.querySelector("#adminMenu");
+			function closeAdminMenu() {
+				adminMenu.classList.add("hidden");
+				adminMenu.classList.remove("flex");
+				adminMenuToggle.setAttribute("aria-expanded", "false");
+			}
+			adminMenuToggle.addEventListener("click", (event) => {
+				event.stopPropagation();
+				const isOpen = !adminMenu.classList.contains("hidden");
+				adminMenu.classList.toggle("hidden", isOpen);
+				adminMenu.classList.toggle("flex", !isOpen);
+				adminMenuToggle.setAttribute("aria-expanded", String(!isOpen));
+			});
+			document.addEventListener("click", (event) => {
+				if (!adminMenu.contains(event.target) && event.target !== adminMenuToggle) closeAdminMenu();
+			});
+
 			// Opsætning.
-			document.querySelector("#settingsToggle").addEventListener("click", openSettings);
+			document.querySelector("#settingsToggle").addEventListener("click", () => {
+				closeAdminMenu();
+				openSettings();
+			});
 			document.querySelector("#closeSettings").addEventListener("click", closeSettings);
 			document.querySelector("#saveSettings").addEventListener("click", saveSettings);
 			document.querySelector("#resetAllTables").addEventListener("click", resetAllTables);
@@ -1760,7 +1780,10 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			});
 
 			// Import.
-			document.querySelector("#importToggle").addEventListener("click", openImportModal);
+			document.querySelector("#importToggle").addEventListener("click", () => {
+				closeAdminMenu();
+				openImportModal();
+			});
 			document.querySelector("#closeImport").addEventListener("click", closeImportModal);
 			document.querySelector("#closeImportBottom").addEventListener("click", closeImportModal);
 			document.querySelector("#saveImport").addEventListener("click", saveImport);
