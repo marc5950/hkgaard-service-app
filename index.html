@@ -166,7 +166,7 @@
 					</div>
 					<span id="kitchenCount" class="rounded-full bg-amber-100 px-3 py-2 text-sm font-bold text-amber-900">0 aktive</span>
 				</div>
-				<div id="kitchenSummary" class="mb-6 flex flex-wrap gap-2" aria-label="Mangler i køkkenet">
+				<div id="kitchenSummary" class="mb-2 flex flex-wrap gap-2" aria-label="Mangler i køkkenet">
 					<span class="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-900"
 						>Forret mangler: <strong id="starterMissing">0 pax</strong></span
 					>
@@ -178,6 +178,17 @@
 					>
 					<span class="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-900"
 						>Dessert mangler: <strong id="dessertMissing">0 pax</strong></span
+					>
+				</div>
+				<div id="kitchenDayTotals" class="mb-6 flex flex-wrap gap-2" aria-label="Total for hele dagen">
+					<span class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700"
+						>Forret i alt (dagen): <strong id="dayStarterTotal">0 pax</strong></span
+					>
+					<span class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700"
+						>Hovedret i alt (dagen): <strong id="dayMainTotal">0 pax</strong></span
+					>
+					<span class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700"
+						>Dessert i alt (dagen): <strong id="dayDessertTotal">0 pax</strong></span
 					>
 				</div>
 				<div id="kitchenOrders" class="grid gap-5 md:grid-cols-2 xl:grid-cols-3"></div>
@@ -312,17 +323,19 @@
 						class="w-full rounded-lg border-2 border-dashed border-slate-300 px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50">
 						+ Tilføj lokale
 					</button>
-					<div class="border-t border-slate-200 pt-4">
-						<p class="mb-2 text-sm font-bold text-slate-700">Fordel borde på lokaler</p>
-						<p class="mb-3 text-xs text-slate-500">Bordnumre hentes fra alle importerede hold. Tildelingen gælder alle dage.</p>
-						<div id="tableRoomRows" class="max-h-64 space-y-1 overflow-y-auto pr-1"></div>
+					<div class="border-t border-slate-200 pt-3">
+						<p class="mb-1 text-sm font-bold text-slate-700">Fordel borde på lokaler</p>
+						<p class="mb-2 text-xs text-slate-500">
+							Bordnumre hentes fra alle importerede hold, med største antal pax i dag som hjælp. Gælder alle dage.
+						</p>
+						<div id="tableRoomRows" class="grid max-h-64 grid-cols-1 gap-1 overflow-y-auto pr-1 sm:grid-cols-2"></div>
 					</div>
 					<div class="grid grid-cols-2 gap-2 pt-2">
 						<button id="saveSettings" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-bold text-white hover:bg-slate-700">Gem opsætning</button
 						><button
 							id="resetAllTables"
 							class="rounded-lg border-2 border-rose-200 bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700 hover:bg-rose-100">
-							Nulstil alle status
+							Nulstil status (alle borde)
 						</button>
 					</div>
 					<p id="settingsMessage" class="min-h-5 text-sm font-bold text-rose-700" role="status"></p>
@@ -353,9 +366,16 @@
 				</div>
 				<div class="space-y-3 p-4 sm:p-5">
 					<p class="text-sm text-slate-500">
-						Indsæt JSON-listen for dagens reservationer (13:30, 17:30 og 19:45). Hver reservation skal indeholde
-						<code class="rounded bg-slate-100 px-1">time</code>, <code class="rounded bg-slate-100 px-1">table</code> og
-						<code class="rounded bg-slate-100 px-1">pax</code>. Eksisterende borde med samme tid + bordnummer beholder deres status.
+						Brug denne prompt sammen med den vedhæftede PDF (fx i ChatGPT) for at få JSON-formatet, og indsæt resultatet herunder:
+					</p>
+					<pre class="whitespace-pre-wrap rounded-lg bg-slate-100 p-3 font-mono text-xs text-slate-700" id="importPrompt">
+Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver reservation skal indeholde time, table og pax.
+
+[{"time":"17:30","table":126,"name":"Henrik Oluf Pedersen","phone":"+4540425450","pax":8,"pescetar":2,"vinmenu":6,"drikmenu":0,"gt":0,"note":""}]</pre
+					>
+					<p class="text-sm font-bold text-rose-700">
+						OBS: Dagens reservationer for de indsatte tidspunkter bliver erstattet ved gem. Bordenes lokale-tildeling (under Opsætning → Fordel borde
+						på lokaler) påvirkes ikke.
 					</p>
 					<textarea
 						id="importJson"
@@ -539,6 +559,9 @@
 				phone: "",
 				note: "",
 				extras: { pescetarianQuantity: 0, wineQuantity: 0, pescetarianWineQuantity: 0, welcomeDrinkQuantity: 0 },
+				seatedAt: null,
+				readySince: null,
+				completedAt: null,
 			};
 
 			/* ----------------------------------------------------------------------------
@@ -591,6 +614,9 @@
 			const mainMissingClassic = document.querySelector("#mainMissingClassic");
 			const mainMissingPescetarian = document.querySelector("#mainMissingPescetarian");
 			const dessertMissing = document.querySelector("#dessertMissing");
+			const dayStarterTotal = document.querySelector("#dayStarterTotal");
+			const dayMainTotal = document.querySelector("#dayMainTotal");
+			const dayDessertTotal = document.querySelector("#dayDessertTotal");
 
 			// Bord-modal
 			const modal = document.querySelector("#tableModal");
@@ -824,6 +850,17 @@
 				);
 			}
 
+			// Højeste kendte pax-antal for et bordnummer på tværs af dagens hold – kun til
+			// at hjælpe med at genkende bordet ved fordeling på lokaler.
+			function getTablePaxHint(number) {
+				let pax = null;
+				TIME_SLOTS.forEach((slot) => {
+					const table = (tables[slotKey(slot)] || {})[number];
+					if (table) pax = Math.max(pax || 0, toQuantity(table.guests));
+				});
+				return pax;
+			}
+
 			// Én række pr. bordnummer på tværs af alle hold, med et lokale-valg.
 			function renderTableRoomRows() {
 				const numbers = getAllKnownTableNumbers();
@@ -832,10 +869,10 @@
 					return;
 				}
 				tableRoomRows.innerHTML = numbers
-					.map(
-						(number) =>
-							`<div class="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2"><span class="text-sm font-bold text-slate-700">Bord ${escapeHtml(number)}</span><select data-table-room="${escapeHtml(number)}" class="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" aria-label="Lokale for bord ${escapeHtml(number)}"><option value="">Ikke tildelt</option>${settingsRooms.map((room) => `<option value="${room.id}" ${tableRoomAssignments[number] === room.id ? "selected" : ""}>${escapeHtml(room.name)}</option>`).join("")}</select></div>`,
-					)
+					.map((number) => {
+						const pax = getTablePaxHint(number);
+						return `<div class="flex items-center justify-between gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5"><span class="min-w-0 truncate text-sm font-bold text-slate-700">Bord ${escapeHtml(number)}${pax ? ` <span class="font-normal text-slate-400">· ${pax}p</span>` : ""}</span><select data-table-room="${escapeHtml(number)}" class="rounded-lg border border-slate-300 bg-white px-1.5 py-1 text-xs outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" aria-label="Lokale for bord ${escapeHtml(number)}"><option value="">Ikke tildelt</option>${settingsRooms.map((room) => `<option value="${room.id}" ${tableRoomAssignments[number] === room.id ? "selected" : ""}>${escapeHtml(room.name)}</option>`).join("")}</select></div>`;
+					})
 					.join("");
 			}
 
@@ -895,13 +932,18 @@
 			// Nulstiller status/timere for alle borde på alle hold (booking-data bevares)
 			// og fjerner køkkenkøen – typisk før en ny dag.
 			async function resetAllTables() {
-				if (!confirm("Nulstil status for alle borde på alle hold?")) return;
+				if (
+					!confirm(
+						"Nulstil status til 'Ikke ankommet' for ALLE borde på ALLE hold (13:30, 17:30 og 19:45)? Navn, pax og menuvalg bevares – kun status, timere og køkkenkøen ryddes.",
+					)
+				)
+					return;
 				const nextTables = {};
 				TIME_SLOTS.forEach((slot) => {
 					const key = slotKey(slot);
 					const slotTables = tables[key] || {};
 					nextTables[key] = Object.fromEntries(
-						Object.entries(slotTables).map(([id, table]) => [id, { ...table, status: "empty", seatedAt: null, readySince: null }]),
+						Object.entries(slotTables).map(([id, table]) => [id, { ...table, status: "empty", seatedAt: null, readySince: null, completedAt: null }]),
 					);
 				});
 				try {
@@ -961,6 +1003,7 @@
 					status: existingTable?.status || "empty",
 					seatedAt: existingTable?.seatedAt || null,
 					readySince: existingTable?.readySince || null,
+					completedAt: existingTable?.completedAt || null,
 				};
 			}
 
@@ -1036,10 +1079,11 @@
 			// Kaldes hver gang data ændrer sig – hele oversigten bygges op forfra.
 			function renderTables() {
 				const slotTables = tables[selectedSlotKey] || {};
-				tableCount.textContent = `${Object.keys(slotTables).length} borde i alt`;
+				const totalPax = Object.values(slotTables).reduce((sum, table) => sum + toQuantity(table.guests), 0);
+				tableCount.textContent = `${totalPax} pax i alt`;
 				currentRoomGroups = computeRoomGroups();
 				renderRoomHotbar();
-				tablesGrid.innerHTML = currentRoomGroups.map((room) => renderRoomSection(room, slotTables)).join("");
+				tablesGrid.innerHTML = currentRoomGroups.map((room) => renderRoomSection(room, slotTables)).join("") + renderFinishedList(slotTables);
 
 				// Klik på et kort åbner bordet; klik på overskriften folder lokalet sammen.
 				tablesGrid.querySelectorAll("[data-table-id]").forEach((card) => card.addEventListener("click", () => openModal(card.dataset.tableId)));
@@ -1068,19 +1112,25 @@
 						renderTables();
 					}),
 				);
+				tablesGrid.querySelectorAll("[data-reopen-table]").forEach((button) =>
+					button.addEventListener("click", (event) => {
+						event.stopPropagation();
+						reopenTable(button.dataset.reopenTable);
+					}),
+				);
 			}
 
 			// HTML for ét lokale: overskrift + gitter med bordkort (for det valgte hold).
+			// Afsluttede borde (completedAt sat) vises ikke her, men i renderFinishedList.
 			function renderRoomSection(room, slotTables) {
 				const isCollapsed = collapsedRooms.has(room.id);
-				const cards = room.tableIds
-					.filter((id) => slotTables[id])
-					.map((id) => renderTableCard(id, slotTables[id]))
-					.join("");
+				const activeIds = room.tableIds.filter((id) => slotTables[id] && !slotTables[id].completedAt);
+				if (!activeIds.length) return "";
+				const cards = activeIds.map((id) => renderTableCard(id, slotTables[id])).join("");
 
 				return `<section id="room-${room.id}" class="room-section" aria-labelledby="room-heading-${room.id}">
 					<button data-room-toggle="${room.id}" aria-expanded="${!isCollapsed}" class="mb-4 flex w-full items-center gap-3 text-left">
-						<span class="h-8 w-1.5 rounded-full ${room.line}"></span><span class="flex-1"><span id="room-heading-${room.id}" class="font-display text-3xl font-bold ${room.accent}">${escapeHtml(room.name)}</span><span class="ml-3 text-sm font-bold text-slate-400">${room.tableIds.length} borde</span></span><span class="text-xl text-slate-400">${isCollapsed ? "▸" : "▾"}</span>
+						<span class="h-8 w-1.5 rounded-full ${room.line}"></span><span class="flex-1"><span id="room-heading-${room.id}" class="font-display text-3xl font-bold ${room.accent}">${escapeHtml(room.name)}</span><span class="ml-3 text-sm font-bold text-slate-400">${activeIds.length} borde</span></span><span class="text-xl text-slate-400">${isCollapsed ? "▸" : "▾"}</span>
 					</button>
 					<div class="room-table-grid ${isCollapsed ? "hidden" : "grid"} gap-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">${cards}</div>
 				</section>`;
@@ -1152,6 +1202,29 @@
 				</button>`;
 			}
 
+			// Liste over borde, hvor "Gør bordet ledigt" er blevet trykket – de forsvinder
+			// fra lokale-gitteret ovenfor, men kan genåbnes herfra, hvis det var en fejl.
+			function renderFinishedList(slotTables) {
+				const finished = Object.entries(slotTables)
+					.filter(([, table]) => table.completedAt)
+					.sort(([, a], [, b]) => b.completedAt - a.completedAt);
+				if (!finished.length) return "";
+
+				const cards = finished.map(([id, table]) => renderFinishedCard(id, table)).join("");
+				return `<section class="mt-10 border-t border-slate-200 pt-6">
+					<h2 class="mb-3 font-display text-2xl font-bold text-slate-400">Afsluttede borde (${finished.length})</h2>
+					<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">${cards}</div>
+				</section>`;
+			}
+
+			function renderFinishedCard(id, table) {
+				const time = new Date(table.completedAt).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" });
+				return `<div class="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+					<div class="min-w-0"><p class="truncate text-sm font-bold text-slate-600">Bord ${id}${table.name ? ` · ${escapeHtml(table.name)}` : ""}</p><p class="text-xs text-slate-400">${toQuantity(table.guests)} pax · afsluttet ${time}</p></div>
+					<button data-reopen-table="${id}" class="shrink-0 rounded-lg border border-slate-300 px-2 py-1 text-xs font-bold text-slate-600 hover:bg-slate-50">Genåbn</button>
+				</div>`;
+			}
+
 			/* ----------------------------------------------------------------------------
 			   10. KØKKENKØ
 			---------------------------------------------------------------------------- */
@@ -1195,9 +1268,9 @@
 				return { activeOrders, groupedOrders };
 			}
 
-			// Tællerne øverst: forretter laves samlet for HELE holdet (fast antal, uanset
-			// hvor mange borde der allerede er markeret "Forret serveret"). Hovedret og
-			// dessert er derimod hvor mange kuverter der reelt mangler at blive lavet.
+			// Tællerne øverst: forretter laves samlet for HELE holdet, så "Forret mangler"
+			// tæller kun de borde, der er ankommet men endnu ikke har fået "Forret serveret".
+			// Hovedret og dessert er hvor mange kuverter der reelt mangler at blive lavet.
 			function renderKitchenSummary(activeOrders) {
 				const missing = { main: 0, dessert: 0 };
 				const mainBreakdown = { classic: 0, pescetarian: 0 };
@@ -1212,21 +1285,41 @@
 					}
 				});
 
-				const starterTotals = Object.values(tables[selectedSlotKey] || {}).reduce(
-					(totals, table) => {
-						const pescetarian = toQuantity(table.extras?.pescetarianQuantity);
-						totals.pescetarian += pescetarian;
-						totals.classic += Math.max(0, toQuantity(table.guests) - pescetarian);
-						return totals;
-					},
-					{ classic: 0, pescetarian: 0 },
-				);
+				const starterTotals = Object.values(tables[selectedSlotKey] || {})
+					.filter((table) => table.status === "arrived")
+					.reduce(
+						(totals, table) => {
+							const pescetarian = toQuantity(table.extras?.pescetarianQuantity);
+							totals.pescetarian += pescetarian;
+							totals.classic += Math.max(0, toQuantity(table.guests) - pescetarian);
+							return totals;
+						},
+						{ classic: 0, pescetarian: 0 },
+					);
 
 				starterMissing.textContent = `${starterTotals.classic} klassisk · ${starterTotals.pescetarian} pescetar`;
 				mainMissing.textContent = `${missing.main} pax`;
 				mainMissingClassic.textContent = `${mainBreakdown.classic} klassisk`;
 				mainMissingPescetarian.textContent = `${mainBreakdown.pescetarian} pescetar`;
 				dessertMissing.textContent = `${missing.dessert} pax`;
+
+				// Dagens samlede antal kuverter (alle tre hold) – forret, hovedret og
+				// dessert er samme total, da hver gæst får præcis én af hver.
+				const dayTotal = TIME_SLOTS.map(slotKey).reduce(
+					(totals, key) => {
+						Object.values(tables[key] || {}).forEach((table) => {
+							const pescetarian = toQuantity(table.extras?.pescetarianQuantity);
+							totals.pescetarian += pescetarian;
+							totals.classic += Math.max(0, toQuantity(table.guests) - pescetarian);
+						});
+						return totals;
+					},
+					{ classic: 0, pescetarian: 0 },
+				);
+				const dayLabel = `${dayTotal.classic + dayTotal.pescetarian} pax (${dayTotal.classic} klassisk · ${dayTotal.pescetarian} pescetar)`;
+				dayStarterTotal.textContent = dayLabel;
+				dayMainTotal.textContent = dayLabel;
+				dayDessertTotal.textContent = dayLabel;
 			}
 
 			// Tegner hele køkkenvisningen.
@@ -1489,13 +1582,16 @@
 			}
 
 			// Rydder bordet: status og timere nulstilles, men navn/pax/menuvalg fra
-			// bookingen bevares. Bordets ventende ordrer fjernes helt.
+			// bookingen bevares. Bordet flyttes til "Afsluttede borde" (completedAt),
+			// og dets ventende ordrer fjernes helt.
 			async function clearTable(tableId) {
 				const slot = selectedSlotKey;
+				const completedAt = Date.now();
 				const changes = {
 					[`tables/${slot}/${tableId}/status`]: "empty",
 					[`tables/${slot}/${tableId}/seatedAt`]: null,
 					[`tables/${slot}/${tableId}/readySince`]: null,
+					[`tables/${slot}/${tableId}/completedAt`]: completedAt,
 				};
 
 				Object.entries(kitchenOrders).forEach(([orderId, order]) => {
@@ -1505,10 +1601,21 @@
 					}
 				});
 
-				tables[slot][tableId] = { ...tables[slot][tableId], status: "empty", seatedAt: null, readySince: null };
+				tables[slot][tableId] = { ...tables[slot][tableId], status: "empty", seatedAt: null, readySince: null, completedAt };
 				if (window.database) await update(ref(window.database), changes);
 				renderTables();
 				renderKitchen();
+			}
+
+			// Genåbner et afsluttet bord: fjerner completedAt, så det dukker op i bordoversigten igen
+			// som "Ikke ankommet" (booking-data er upåvirket).
+			async function reopenTable(tableId) {
+				const slot = selectedSlotKey;
+				const current = tables[slot][tableId];
+				if (!current) return;
+				tables[slot][tableId] = { ...current, completedAt: null };
+				renderTables();
+				if (window.database) await update(ref(window.database), { [`tables/${slot}/${tableId}/completedAt`]: null });
 			}
 
 			// Fælles logik for enhver statusændring: gemmer bordet, og udløser en ny
