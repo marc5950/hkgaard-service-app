@@ -1320,14 +1320,16 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			// Tællerne øverst: "mangler" viser, hvor mange kuverter af HELE holdet der
-			// stadig ikke har fået den pågældende ret serveret – tallet falder i takt med,
-			// at tjeneren trykker status videre (fx "Hovedret serveret").
+			// stadig venter på den pågældende ret. Forret falder når tjeneren trykker
+			// "Forret serveret" (der er ingen køkkenordre for forretten). Hovedret og
+			// dessert falder allerede når KØKKENET trykker ordren ud (status "..._ready"),
+			// ikke først når tjeneren senere serverer den.
 			function renderKitchenSummary() {
 				const slotTables = Object.values(tables[selectedSlotKey] || {}).filter((table) => !table.completedAt);
 
 				const starterTotals = sumTablePax(slotTables, (table) => COURSE_PROGRESS[table.status] < COURSE_PROGRESS.starter_served);
-				const mainTotals = sumTablePax(slotTables, (table) => COURSE_PROGRESS[table.status] < COURSE_PROGRESS.main_served);
-				const dessertTotals = sumTablePax(slotTables, (table) => COURSE_PROGRESS[table.status] < COURSE_PROGRESS.dessert_served);
+				const mainTotals = sumTablePax(slotTables, (table) => COURSE_PROGRESS[table.status] < COURSE_PROGRESS.main_ready);
+				const dessertTotals = sumTablePax(slotTables, (table) => COURSE_PROGRESS[table.status] < COURSE_PROGRESS.dessert_ready);
 
 				starterMissing.textContent = `${starterTotals.classic} klassisk · ${starterTotals.pescetarian} pescetar`;
 				mainMissing.textContent = `${mainTotals.classic + mainTotals.pescetarian} pax`;
