@@ -149,6 +149,9 @@
 
 			<!-- Farveforklaring til bordkortene -->
 			<div id="statusLegend" class="mb-6 flex flex-wrap gap-2" aria-label="Statusforklaring">
+				<span class="rounded-full bg-fuchsia-100 px-3 py-1.5 text-xs font-bold text-fuchsia-800"
+					>🥂 Velkomstdrinks: <strong id="welcomeDrinkTotal">0</strong></span
+				>
 				<span class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700">Grå · Ledigt</span>
 				<span class="rounded-full bg-rose-100 px-3 py-1.5 text-xs font-bold text-rose-800">Rød · Venter forret</span>
 				<span class="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-800">Gul · Forret</span>
@@ -610,6 +613,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			const tableCount = document.querySelector("#tableCount");
 			const timeSlotTabs = document.querySelector("#timeSlotTabs");
 			const statusLegend = document.querySelector("#statusLegend");
+			const welcomeDrinkTotal = document.querySelector("#welcomeDrinkTotal");
 			const tablesGrid = document.querySelector("#tablesGrid");
 			const roomHotbar = document.querySelector("#roomHotbar");
 			const hotbarButtons = document.querySelector("#roomHotbarButtons");
@@ -1106,6 +1110,9 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				const slotTables = tables[selectedSlotKey] || {};
 				const totalPax = Object.values(slotTables).reduce((sum, table) => sum + toQuantity(table.guests), 0);
 				tableCount.textContent = `${totalPax} pax i alt`;
+				welcomeDrinkTotal.textContent = Object.values(slotTables)
+					.filter((table) => !table.completedAt)
+					.reduce((sum, table) => sum + toQuantity(table.extras?.welcomeDrinkQuantity), 0);
 				currentRoomGroups = computeRoomGroups();
 				renderRoomHotbar();
 				tablesGrid.innerHTML = currentRoomGroups.map((room) => renderRoomSection(room, slotTables)).join("") + renderFinishedList(slotTables);
