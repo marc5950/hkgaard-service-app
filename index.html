@@ -327,7 +327,14 @@
 						+ Tilføj lokale
 					</button>
 					<div class="border-t border-slate-200 pt-3">
-						<p class="mb-1 text-sm font-bold text-slate-700">Fordel borde på lokaler</p>
+						<div class="mb-1 flex items-center justify-between gap-2">
+							<p class="text-sm font-bold text-slate-700">Fordel borde på lokaler</p>
+							<button
+								id="resetTableRooms"
+								class="shrink-0 rounded-lg border border-slate-300 px-2 py-1 text-xs font-bold text-slate-500 hover:bg-slate-50">
+								Nulstil fordeling
+							</button>
+						</div>
 						<p class="mb-2 text-xs text-slate-500">
 							Bordnumre hentes fra alle importerede hold, med største antal pax i dag som hjælp. Gælder alle dage.
 						</p>
@@ -929,6 +936,21 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				} catch (error) {
 					console.error(error);
 					settingsMessage.textContent = "Kunne ikke gemme opsætningen.";
+				}
+			}
+
+			// Fjerner alle bord-til-lokale tildelinger (både lokalt og i Firebase).
+			async function resetTableRoomAssignments() {
+				if (!confirm("Nulstil fordelingen af borde på lokaler? Alle borde bliver 'Ikke tildelt' igen.")) return;
+				tableRoomAssignments = {};
+				renderTableRoomRows();
+				renderTables();
+				try {
+					if (window.database) await update(ref(window.database), { "settings/tableRooms": null });
+					settingsMessage.textContent = "Bordfordelingen er nulstillet";
+				} catch (error) {
+					console.error(error);
+					settingsMessage.textContent = "Kunne ikke nulstille bordfordelingen.";
 				}
 			}
 
@@ -1768,6 +1790,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			document.querySelector("#closeSettings").addEventListener("click", closeSettings);
 			document.querySelector("#saveSettings").addEventListener("click", saveSettings);
 			document.querySelector("#resetAllTables").addEventListener("click", resetAllTables);
+			document.querySelector("#resetTableRooms").addEventListener("click", resetTableRoomAssignments);
 			document.querySelector("#addRoom").addEventListener("click", () => {
 				settingsRooms.push({
 					id: `room-${Date.now()}`,
