@@ -1163,7 +1163,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					<button data-room-toggle="${room.id}" aria-expanded="${!isCollapsed}" class="mb-4 flex w-full items-center gap-3 text-left">
 						<span class="h-8 w-1.5 rounded-full ${room.line}"></span><span class="flex-1"><span id="room-heading-${room.id}" class="font-display text-3xl font-bold ${room.accent}">${escapeHtml(room.name)}</span><span class="ml-3 text-sm font-bold text-slate-400">${activeIds.length} borde</span></span><span class="text-xl text-slate-400">${isCollapsed ? "▸" : "▾"}</span>
 					</button>
-					<div class="room-table-grid ${isCollapsed ? "hidden" : "grid"} gap-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">${cards}</div>
+					<div class="room-table-grid ${isCollapsed ? "hidden" : "grid"} gap-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">${cards}</div>
 				</section>`;
 			}
 
@@ -1191,7 +1191,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					: null;
 				const seatedBadge =
 					seatedMinutes !== null
-						? `<span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500 sm:text-[11px]" title="Tid siden bordet ankom">🕐${seatedTime} - ${formatDuration(seatedMinutes)}</span>`
+						? `<span class="inline-flex items-center rounded-full bg-white px-1 py-0.5 text-[10px] font-bold text-black sm:text-[11px]" title="Tid siden bordet ankom">🕐${seatedTime} - ${formatDuration(seatedMinutes)}</span>`
 						: "";
 
 				// TIMER 2 af 2 – "Klar i": hvor længe en ret har stået klar og ventet på at
@@ -1229,7 +1229,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					: `<span class="h-2.5 w-2.5 shrink-0 rounded-full ${status.dot}" title="${status.label}"></span>`;
 
 				return `<button class="table-card rounded-xl border-2 px-3 py-2 text-left shadow-sm ${status.card}" data-table-id="${id}">
-					<div class="flex items-center justify-between gap-2"><span class="font-display flex flex-wrap items-center gap-1.5 text-base font-bold text-slate-900 sm:text-lg">Bord ${id} <span class="font-sans text-xs font-bold text-slate-500 sm:text-sm">· ${toQuantity(table.guests)} pax</span>${seatedBadge}</span><div class="flex items-center gap-2"><span class="flex items-center gap-1 text-xs" aria-hidden="true">${extraIcons.join("")}</span>${dot}</div></div>
+					<div class="flex items-center justify-between"><span class="font-display flex flex-wrap items-center gap-1.5 text-base font-bold text-slate-900 sm:text-lg">Bord ${id} <span class="font-sans text-xs font-bold text-slate-500 sm:text-sm">· ${toQuantity(table.guests)} pax</span></span><div class="flex items-center gap-2"><span class="flex items-center gap-1 text-xs" aria-hidden="true">${extraIcons.join("")}</span>${dot}</div></div>
+					${seatedBadge ? `<div>${seatedBadge}</div>` : ""}
 					${details}
 				</button>`;
 			}
