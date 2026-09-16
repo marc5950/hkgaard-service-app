@@ -470,7 +470,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			---------------------------------------------------------------------------- */
 
 			// Dagens tre hold. Nøglen i Firebase er tidspunktet uden kolon (fx "1730").
-			const TIME_SLOTS = ["13:30", "17:30", "19:45"];
+			const TIME_SLOTS = ["11:45", "12:30", "13:30", "14:15", "17:30", "19:45"];
 			function slotKey(label) {
 				return String(label || "")
 					.replace(":", "")
@@ -1214,10 +1214,11 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 
 				const extraIcons = [
 					extras.welcomeDrinkQuantity > 0 &&
-						`<span title="Velkomstdrink x${extras.welcomeDrinkQuantity}" aria-label="Velkomstdrink">🥂${extras.welcomeDrinkQuantity}</span>`,
-					extras.wineQuantity > 0 && `<span title="Vinmenu x${extras.wineQuantity}" aria-label="Vinmenu">🍷${extras.wineQuantity}</span>`,
+						`<span title="Velkomstdrink x${extras.welcomeDrinkQuantity}" aria-label="Velkomstdrink" class="rounded-full bg-white/80 px-1.5 py-0.5 shadow-sm ring-1 ring-black/10">🥂${extras.welcomeDrinkQuantity}</span>`,
+					extras.wineQuantity > 0 &&
+						`<span title="Vinmenu x${extras.wineQuantity}" aria-label="Vinmenu" class="rounded-full bg-white/80 px-1.5 py-0.5 shadow-sm ring-1 ring-black/10">🍷${extras.wineQuantity}</span>`,
 					extras.pescetarianWineQuantity > 0 &&
-						`<span title="Vinmenu til pescetar x${extras.pescetarianWineQuantity}" aria-label="Vinmenu til pescetar">🐟🍷${extras.pescetarianWineQuantity}</span>`,
+						`<span title="Vinmenu til pescetar x${extras.pescetarianWineQuantity}" aria-label="Vinmenu til pescetar" class="rounded-full bg-white/80 px-1.5 py-0.5 shadow-sm ring-1 ring-black/10">🐟🍷${extras.pescetarianWineQuantity}</span>`,
 				].filter(Boolean);
 
 				const details = `<div class="mt-1 flex items-start justify-between gap-2"><div class="min-w-0 flex-1">${table.name ? `<p class="truncate text-[11px] font-bold text-slate-700 sm:text-xs">${escapeHtml(table.name)}</p>` : ""}${pescetarianQuantity ? `<p class="text-[11px] font-bold text-amber-800 sm:text-xs">${pescetarianQuantity} pescetar</p>` : ""}${table.note ? `<p class="mt-1 max-w-full truncate text-[11px] font-semibold text-slate-600 sm:text-xs" title="${escapeHtml(table.note)}">${escapeHtml(table.note)}</p>` : ""}</div><div class="flex shrink-0 items-center gap-1.5">${readyBadge}<span class="shrink-0 rounded-full px-2 py-1 text-[10px] font-bold leading-tight ${status.badge} sm:text-xs">${status.label}</span></div></div>`;
@@ -1229,7 +1230,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					: `<span class="h-2.5 w-2.5 shrink-0 rounded-full ${status.dot}" title="${status.label}"></span>`;
 
 				return `<button class="table-card rounded-xl border-2 px-3 py-2 text-left shadow-sm ${status.card}" data-table-id="${id}">
-					<div class="flex items-center justify-between gap-2"><span class="font-display flex flex-wrap items-center gap-1.5 text-base font-bold text-slate-900 sm:text-lg">Bord ${id} <span class="font-sans text-xs font-bold text-slate-500 sm:text-sm">· ${toQuantity(table.guests)} pax</span>${seatedBadge}</span><div class="flex items-center gap-2"><span class="text-sm" aria-hidden="true">${extraIcons.join(" ")}</span>${dot}</div></div>
+					<div class="flex items-center justify-between gap-2"><span class="font-display flex flex-wrap items-center gap-1.5 text-base font-bold text-slate-900 sm:text-lg">Bord ${id} <span class="font-sans text-xs font-bold text-slate-500 sm:text-sm">· ${toQuantity(table.guests)} pax</span>${seatedBadge}</span><div class="flex items-center gap-2"><span class="flex items-center gap-1 text-xs" aria-hidden="true">${extraIcons.join("")}</span>${dot}</div></div>
 					${details}
 				</button>`;
 			}
