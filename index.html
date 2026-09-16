@@ -388,9 +388,10 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 
 [{"time":"17:30","table":126,"name":"Henrik Oluf Pedersen","phone":"+4540425450","pax":8,"pescetar":2,"vinmenu":6,"drikmenu":0,"gt":0,"note":""}]</pre
 					>
-					<p class="text-sm font-bold text-rose-700">
-						OBS: Dagens reservationer for de indsatte tidspunkter bliver erstattet ved gem. Bordenes lokale-tildeling (under Opsætning → Fordel borde
-						på lokaler) påvirkes ikke.
+					<p class="text-sm font-bold text-emerald-700">
+						Kun de tidspunkter, der står i den indsatte JSON, bliver opdateret – øvrige tidspunkter og deres borde røres ikke. Findes et bordnummer
+						allerede for det tidspunkt, opdateres navn/pax/menuvalg (status og timere bevares); ellers oprettes bordet som nyt. Bordenes
+						lokale-tildeling (under Opsætning → Fordel borde på lokaler) påvirkes aldrig af en import.
 					</p>
 					<textarea
 						id="importJson"
@@ -409,6 +410,17 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						</button>
 					</div>
 					<p id="importMessage" class="min-h-5 text-sm font-bold text-rose-700" role="status"></p>
+					<div class="border-t border-slate-200 pt-3">
+						<button
+							id="clearAllReservations"
+							class="w-full rounded-lg border-2 border-rose-200 bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700 transition hover:bg-rose-100">
+							Ryd alle reservationer
+						</button>
+						<p class="mt-1.5 text-xs text-slate-500">
+							Fjerner ALT bookingdata for alle tidspunkter (navn, pax, menuvalg, status). Brug kun hvis dagen skal starte helt forfra. Kan ikke
+							fortrydes.
+						</p>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -1046,7 +1058,10 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				importModal.classList.remove("flex");
 			}
 
-			// Læser JSON-teksten, bygger alle tre hold på ny og overskriver tables/ i Firebase.
+			// Læser JSON-teksten og opdaterer KUN de tidspunkter og bordnumre, der reelt
+			// står i teksten – alt andet (andre tidspunkter, andre borde på samme
+			// tidspunkt, og deres status/timere) røres ikke. Det gør det muligt at
+			// rette eller tilføje enkelte reservationer uden at nulstille resten af dagen.
 			async function saveImport() {
 				importMessage.textContent = "";
 				let parsed;
@@ -1058,17 +1073,25 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				}
 
 				const bookingsBySlot = normalizeImportPayload(parsed);
-				const nextTables = {};
+				const nextTables = { ...tables };
+				const changes = {};
+				const touchedSlots = new Set();
 				let totalBookings = 0;
 
 				TIME_SLOTS.forEach((slot) => {
 					const key = slotKey(slot);
-					const existingSlotTables = tables[key] || {};
-					const slotTables = {};
-					(bookingsBySlot[key] || []).forEach((booking) => {
+					const bookings = bookingsBySlot[key] || [];
+					if (!bookings.length) return; // dette tidspunkt er ikke med i den indsatte JSON – lad det være urørt
+
+					touchedSlots.add(key);
+					const slotTables = { ...(tables[key] || {}) };
+					bookings.forEach((booking) => {
 						const tableNumber = String(booking.table ?? booking.bord ?? booking.tableNumber ?? "").trim();
 						if (!tableNumber) return;
-						slotTables[tableNumber] = bookingToTable(booking, existingSlotTables[tableNumber]);
+						// bookingToTable bevarer status/seatedAt/readySince/completedAt, hvis bordet
+						// allerede findes – kun navn/pax/note/menuvalg opdateres fra bookingen.
+						slotTables[tableNumber] = bookingToTable(booking, slotTables[tableNumber]);
+						changes[`tables/${key}/${tableNumber}`] = slotTables[tableNumber];
 						totalBookings += 1;
 					});
 					nextTables[key] = slotTables;
@@ -1081,21 +1104,47 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 
 				tables = nextTables;
 				if (!Object.keys(tables[selectedSlotKey] || {}).length) {
-					const firstWithData = TIME_SLOTS.map(slotKey).find((key) => Object.keys(tables[key]).length > 0);
-					if (firstWithData) selectedSlotKey = firstWithData;
+					const firstTouched = TIME_SLOTS.map(slotKey).find((key) => touchedSlots.has(key) && Object.keys(tables[key]).length > 0);
+					if (firstTouched) selectedSlotKey = firstTouched;
 				}
 
 				try {
-					if (window.database) await update(ref(window.database), { tables: nextTables });
+					if (window.database) await update(ref(window.database), changes);
 					renderTimeSlotTabs();
 					renderTables();
 					renderKitchen();
-					importMessage.textContent = `${totalBookings} reservationer importeret`;
+					const slotLabel = touchedSlots.size === 1 ? "1 tidspunkt" : `${touchedSlots.size} tidspunkter`;
+					importMessage.textContent = `${totalBookings} reservationer importeret (${slotLabel})`;
 					importJson.value = "";
 					setTimeout(closeImportModal, 600);
 				} catch (error) {
 					console.error(error);
 					importMessage.textContent = "Kunne ikke gemme importen i Firebase.";
+				}
+			}
+
+			// Rydder ALT bookingdata for alle tidspunkter (samt køkkenkøen) – bruges kun
+			// hvis dagen skal starte helt forfra. Kan ikke fortrydes.
+			async function clearAllReservations() {
+				if (
+					!confirm("Ryd ALLE reservationer for alle tidspunkter? Navn, pax, menuvalg og status forsvinder for samtlige borde og kan ikke fortrydes.")
+				)
+					return;
+
+				const nextTables = {};
+				TIME_SLOTS.forEach((slot) => (nextTables[slotKey(slot)] = {}));
+
+				try {
+					tables = nextTables;
+					kitchenOrders = {};
+					if (window.database) await update(ref(window.database), { tables: nextTables, kitchenOrders: {} });
+					renderTimeSlotTabs();
+					renderTables();
+					renderKitchen();
+					importMessage.textContent = "Alle reservationer er ryddet";
+				} catch (error) {
+					console.error(error);
+					importMessage.textContent = "Kunne ikke rydde reservationerne.";
 				}
 			}
 
@@ -1819,6 +1868,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			document.querySelector("#closeImport").addEventListener("click", closeImportModal);
 			document.querySelector("#closeImportBottom").addEventListener("click", closeImportModal);
 			document.querySelector("#saveImport").addEventListener("click", saveImport);
+			document.querySelector("#clearAllReservations").addEventListener("click", clearAllReservations);
 
 			// Skift mellem bordoversigt og køkken.
 			kitchenToggle.addEventListener("click", () => setView(activeView === "kitchen" ? "tables" : "kitchen"));
