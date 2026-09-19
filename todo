@@ -1,5 +1,0 @@
-dot skal have grå farve som standard altid. Kun når en ordre venter på at blive kørt til et bord skal den vise grøn, gul og rød ligesom timer
-mad timer er større end label på bord card
-status knapper har forkerte farver. det giver ingen mening da forret serveret virker og hvis jeg ændrer bg-sky til feks 600 virker det også. hover farven ændrer sig heller ikke
-
-Konverter den vedhæftede PDF med reservationer til dette JSON-format. Gruppér reservationerne efter 'time' (13:30, 17:30, 19:45). Sæt 'status' til 'empty' som standard for alle borde.
