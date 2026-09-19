@@ -331,15 +331,17 @@
 					</button>
 					<div class="border-t border-slate-200 pt-3">
 						<div class="mb-1 flex items-center justify-between gap-2">
-							<p class="text-sm font-bold text-slate-700">Fordel borde på lokaler</p>
+							<p class="text-sm font-bold text-slate-700">Bordskilte og lokaler</p>
 							<button
 								id="resetTableRooms"
 								class="shrink-0 rounded-lg border border-slate-300 px-2 py-1 text-xs font-bold text-slate-500 hover:bg-slate-50">
-								Nulstil fordeling
+								Nulstil fordeling og numre
 							</button>
 						</div>
 						<p class="mb-2 text-xs text-slate-500">
-							Bordnumre hentes fra alle importerede hold, med største antal pax i dag som hjælp. Gælder alle dage.
+							Bordnumre hentes fra alle importerede hold, med største antal pax i dag som hjælp. Angiv evt. det nummer, der reelt står på bordskiltet
+							(fx 1, 2, 3...) – lad feltet stå tomt for at bruge booking-nummeret. Bordkortene sorteres efter dette nummer, laveste først. Gælder alle
+							dage.
 						</p>
 						<div id="tableRoomRows" class="grid max-h-64 grid-cols-1 gap-1 overflow-y-auto pr-1 sm:grid-cols-2"></div>
 					</div>
@@ -456,11 +458,12 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 
 			/* ----------------------------------------------------------------------------
 			   1. FIREBASE-OPSÆTNING
-			   Data ligger i Firebase Realtime Database under fire nøgler:
+			   Data ligger i Firebase Realtime Database under fem nøgler:
 			     tables/{hold}/{bordnr}   – én booking pr. bord pr. tidspunkt (fra import)
 			     kitchenOrders/           – én post pr. hovedret/dessert-bestilling
 			     settings/rooms           – lokalernes navne og farve
 			     settings/tableRooms      – hvilket lokale hvert bordnummer hører til
+			     settings/tableNumbers    – bordskilt-nummer, hvis personalet har sat et (ellers vises booking-nummeret)
 			   Uden gyldige nøgler kører appen videre i "demo"-tilstand uden synkronisering.
 			---------------------------------------------------------------------------- */
 			import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -594,7 +597,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			/* ----------------------------------------------------------------------------
 			   3. APPENS TILSTAND
 			   Alt herunder ændrer sig under brug. Firebase-lytterne i afsnit 14
-			   overskriver tables/kitchenOrders/settingsRooms/tableRoomAssignments.
+			   overskriver tables/kitchenOrders/settingsRooms/tableRoomAssignments/tableDisplayNumbers.
 			---------------------------------------------------------------------------- */
 			let tables = Object.fromEntries(TIME_SLOTS.map((slot) => [slotKey(slot), {}])); // { "1730": { bordnr: booking } }
 			let kitchenOrders = {}; // { ordreId: {tableId, slot, course, quantity, status...} }
@@ -611,6 +614,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				{ id: "terrase", name: "Terrase", accent: "text-emerald-700", line: "bg-emerald-600", nav: "bg-emerald-100 text-emerald-800" },
 			];
 			let tableRoomAssignments = {}; // { bordnummer: lokaleId }
+			let tableDisplayNumbers = {}; // { bordnummer (fra booking): bordskilt-nummer, valgt af personalet }
 
 			let currentRoomGroups = []; // genberegnes i renderTables(): [{ id, name, accent, line, nav, tableIds }]
 			const collapsedRooms = new Set(); // id'er på lokaler, der er klappet sammen
@@ -690,6 +694,26 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			function getRoomName(tableId) {
 				const roomId = tableRoomAssignments[String(tableId)];
 				return settingsRooms.find((room) => room.id === roomId)?.name || "";
+			}
+
+			// Nummeret der reelt står på bordskiltet, hvis personalet har angivet et
+			// (under Opsætning → Bordskilte og lokaler) – ellers bookingsystemets eget
+			// bordnummer. Bruges KUN til visning og sortering, aldrig som datanøgle.
+			function getDisplayNumber(tableId) {
+				const custom = tableDisplayNumbers[String(tableId)];
+				return custom !== undefined && custom !== "" ? custom : tableId;
+			}
+
+			// Sorterer bordnumre efter bordskilt-nummeret (laveste først). Numeriske
+			// bordskilte sorteres som tal; er bordskiltet ikke et rent tal, falder vi
+			// tilbage til alfabetisk sortering.
+			function compareByDisplayNumber(a, b) {
+				const displayA = getDisplayNumber(a);
+				const displayB = getDisplayNumber(b);
+				const numericA = Number(displayA);
+				const numericB = Number(displayB);
+				if (!Number.isNaN(numericA) && !Number.isNaN(numericB)) return numericA - numericB;
+				return String(displayA).localeCompare(String(displayB), "da");
 			}
 
 			// "Hovedret · pescetarisk" -> "main". Bruges til at gruppere ordrer pr. ret.
@@ -807,8 +831,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					(target || unassigned).tableIds.push(number);
 				});
 
-				groups.forEach((room) => room.tableIds.sort((a, b) => Number(a) - Number(b)));
-				unassigned.tableIds.sort((a, b) => Number(a) - Number(b));
+				groups.forEach((room) => room.tableIds.sort(compareByDisplayNumber));
+				unassigned.tableIds.sort(compareByDisplayNumber);
 
 				const result = groups.filter((room) => room.tableIds.length > 0);
 				if (unassigned.tableIds.length) result.unshift(unassigned);
@@ -886,7 +910,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				return pax;
 			}
 
-			// Én række pr. bordnummer på tværs af alle hold, med et lokale-valg.
+			// Én række pr. bordnummer på tværs af alle hold, med et bordskilt-nummer og et lokale-valg.
 			function renderTableRoomRows() {
 				const numbers = getAllKnownTableNumbers();
 				if (!numbers.length) {
@@ -896,7 +920,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				tableRoomRows.innerHTML = numbers
 					.map((number) => {
 						const pax = getTablePaxHint(number);
-						return `<div class="flex items-center justify-between gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5"><span class="min-w-0 truncate text-sm font-bold text-slate-700">Bord ${escapeHtml(number)}${pax ? ` <span class="font-normal text-slate-400">· ${pax}p</span>` : ""}</span><select data-table-room="${escapeHtml(number)}" class="rounded-lg border border-slate-300 bg-white px-1.5 py-1 text-xs outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" aria-label="Lokale for bord ${escapeHtml(number)}"><option value="">Ikke tildelt</option>${settingsRooms.map((room) => `<option value="${room.id}" ${tableRoomAssignments[number] === room.id ? "selected" : ""}>${escapeHtml(room.name)}</option>`).join("")}</select></div>`;
+						return `<div class="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5"><span class="min-w-0 flex-1 truncate text-sm font-bold text-slate-700">Bord ${escapeHtml(number)}${pax ? ` <span class="font-normal text-slate-400">· ${pax}p</span>` : ""}</span><input data-table-number="${escapeHtml(number)}" type="text" inputmode="numeric" value="${escapeHtml(tableDisplayNumbers[number] || "")}" placeholder="${escapeHtml(number)}" title="Bordskilt-nummer for bord ${escapeHtml(number)}" aria-label="Bordskilt-nummer for bord ${escapeHtml(number)}" class="w-12 shrink-0 rounded-lg border border-slate-300 bg-white px-1 py-1 text-center text-xs outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" /><select data-table-room="${escapeHtml(number)}" class="shrink-0 rounded-lg border border-slate-300 bg-white px-1.5 py-1 text-xs outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" aria-label="Lokale for bord ${escapeHtml(number)}"><option value="">Ikke tildelt</option>${settingsRooms.map((room) => `<option value="${room.id}" ${tableRoomAssignments[number] === room.id ? "selected" : ""}>${escapeHtml(room.name)}</option>`).join("")}</select></div>`;
 					})
 					.join("");
 			}
@@ -929,12 +953,18 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				}
 
 				const nextAssignments = {};
+				const nextDisplayNumbers = {};
 				tableRoomRows.querySelectorAll("[data-table-room]").forEach((select) => {
 					if (select.value) nextAssignments[select.dataset.tableRoom] = select.value;
+				});
+				tableRoomRows.querySelectorAll("[data-table-number]").forEach((input) => {
+					const value = input.value.trim();
+					if (value) nextDisplayNumbers[input.dataset.tableNumber] = value;
 				});
 
 				settingsRooms = nextRooms;
 				tableRoomAssignments = nextAssignments;
+				tableDisplayNumbers = nextDisplayNumbers;
 				renderTables();
 
 				try {
@@ -943,6 +973,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 							settings: {
 								rooms: settingsRooms.map(({ id, name, accent, line, nav }) => ({ id, name, accent, line, nav })),
 								tableRooms: tableRoomAssignments,
+								tableNumbers: tableDisplayNumbers,
 							},
 						});
 					}
@@ -954,15 +985,21 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				}
 			}
 
-			// Fjerner alle bord-til-lokale tildelinger (både lokalt og i Firebase).
+			// Fjerner alle bord-til-lokale tildelinger OG bordskilt-numre (både lokalt og i Firebase).
 			async function resetTableRoomAssignments() {
-				if (!confirm("Nulstil fordelingen af borde på lokaler? Alle borde bliver 'Ikke tildelt' igen.")) return;
+				if (
+					!confirm(
+						"Nulstil fordelingen af borde på lokaler og bordskilt-numre? Alle borde bliver 'Ikke tildelt', og numrene stilles tilbage til booking-numrene.",
+					)
+				)
+					return;
 				tableRoomAssignments = {};
+				tableDisplayNumbers = {};
 				renderTableRoomRows();
 				renderTables();
 				try {
-					if (window.database) await update(ref(window.database), { "settings/tableRooms": null });
-					settingsMessage.textContent = "Bordfordelingen er nulstillet";
+					if (window.database) await update(ref(window.database), { "settings/tableRooms": null, "settings/tableNumbers": null });
+					settingsMessage.textContent = "Bordfordelingen og numrene er nulstillet";
 				} catch (error) {
 					console.error(error);
 					settingsMessage.textContent = "Kunne ikke nulstille bordfordelingen.";
@@ -1278,7 +1315,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					: `<span class="h-2.5 w-2.5 shrink-0 rounded-full ${status.dot}" title="${status.label}"></span>`;
 
 				return `<button class="table-card rounded-xl border-2 px-3 py-2 text-left shadow-sm ${status.card}" data-table-id="${id}">
-					<div class="flex items-center justify-between"><span class="font-display flex flex-wrap items-center gap-1.5 text-base font-bold text-slate-900 sm:text-lg">Bord ${id} <span class="font-sans text-xs font-bold text-slate-500 sm:text-sm">· ${toQuantity(table.guests)} pax</span></span><div class="flex items-center gap-2"><span class="flex items-center gap-1 text-xs" aria-hidden="true">${extraIcons.join("")}</span>${dot}</div></div>
+					<div class="flex items-center justify-between"><span class="font-display flex flex-wrap items-center gap-1.5 text-base font-bold text-slate-900 sm:text-lg">Bord ${escapeHtml(getDisplayNumber(id))} <span class="font-sans text-xs font-bold text-slate-500 sm:text-sm">· ${toQuantity(table.guests)} pax</span></span><div class="flex items-center gap-2"><span class="flex items-center gap-1 text-xs" aria-hidden="true">${extraIcons.join("")}</span>${dot}</div></div>
 					${seatedBadge ? `<div>${seatedBadge}</div>` : ""}
 					${details}
 				</button>`;
@@ -1302,7 +1339,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			function renderFinishedCard(id, table) {
 				const time = new Date(table.completedAt).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" });
 				return `<div class="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-					<div class="min-w-0"><p class="truncate text-sm font-bold text-slate-600">Bord ${id}${table.name ? ` · ${escapeHtml(table.name)}` : ""}</p><p class="text-xs text-slate-400">${toQuantity(table.guests)} pax · afsluttet ${time}</p></div>
+					<div class="min-w-0"><p class="truncate text-sm font-bold text-slate-600">Bord ${escapeHtml(getDisplayNumber(id))}${table.name ? ` · ${escapeHtml(table.name)}` : ""}</p><p class="text-xs text-slate-400">${toQuantity(table.guests)} pax · afsluttet ${time}</p></div>
 					<button data-reopen-table="${id}" class="shrink-0 rounded-lg border border-slate-300 px-2 py-1 text-xs font-bold text-slate-600 hover:bg-slate-50">Genåbn</button>
 				</div>`;
 			}
@@ -1425,7 +1462,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					.join("");
 
 				return `<article class="min-h-[260px] rounded-2xl border-slate-200 bg-white p-6 shadow-sm">
-					<div class="flex items-center justify-between gap-3 border-slate-200"><h3 class="font-display text-3xl font-bold text-slate-900">Bord ${escapeHtml(group.tableId)}</h3>${group.room ? `<span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">${escapeHtml(group.room)}</span>` : ""}</div>
+					<div class="flex items-center justify-between gap-3 border-slate-200"><h3 class="font-display text-3xl font-bold text-slate-900">Bord ${escapeHtml(getDisplayNumber(group.tableId))}</h3>${group.room ? `<span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">${escapeHtml(group.room)}</span>` : ""}</div>
 					<div class="mt-5 space-y-4">${courseBoxes}</div>
 					${group.note ? `<p class="mt-4 border-t border-slate-200 pt-3 text-sm font-semibold text-slate-600">${escapeHtml(group.note)}</p>` : ""}
 				</article>`;
@@ -1573,7 +1610,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				activeTableId = id;
 				const table = getActiveTable();
 
-				modalTitle.textContent = `Bord ${id}`;
+				modalTitle.textContent = `Bord ${getDisplayNumber(id)}`;
 				tableNote.value = table.note || "";
 				renderBookingInfo(table);
 
@@ -1935,6 +1972,13 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					onValue(ref(window.database, "settings/tableRooms"), (snapshot) => {
 						tableRoomAssignments = snapshot.val() || {};
 						renderTables();
+					});
+
+					// Bordskilt-numre, som personalet selv har sat (bordkortene sorteres efter dette).
+					onValue(ref(window.database, "settings/tableNumbers"), (snapshot) => {
+						tableDisplayNumbers = snapshot.val() || {};
+						renderTables();
+						if (activeView === "kitchen") renderKitchen();
 					});
 
 					// Køkkenkøen (hovedret/dessert).
