@@ -226,8 +226,38 @@
 					</div>
 				</div>
 				<div class="space-y-4 p-4 sm:p-5">
-					<!-- Bookingdata kommer udelukkende fra den daglige import og kan ikke rettes her. -->
-					<div id="bookingInfo" class="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm sm:grid-cols-4"></div>
+					<div>
+						<div class="mb-2 flex items-center justify-between">
+							<!-- Bookingdata kommer fra den daglige import, men kan rettes her – fx hvis der
+							     dukker flere eller færre gæster op, end der er reserveret til. -->
+							<p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Booking</p>
+							<button
+								id="editBookingToggle"
+								type="button"
+								class="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-bold text-slate-600 transition hover:bg-slate-50">
+								Rediger
+							</button>
+						</div>
+						<div id="bookingInfo" class="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm sm:grid-cols-4"></div>
+						<div
+							id="bookingEditForm"
+							class="hidden grid grid-cols-2 gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm sm:grid-cols-4"></div>
+						<div id="bookingEditActions" class="mt-2 hidden grid grid-cols-2 gap-2">
+							<button
+								id="cancelBookingEdit"
+								type="button"
+								class="w-full rounded-lg border-2 border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50">
+								Annuller
+							</button>
+							<button
+								id="saveBookingEdit"
+								type="button"
+								class="w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-bold text-white transition hover:bg-slate-700">
+								Gem booking
+							</button>
+						</div>
+						<p id="bookingEditMessage" class="min-h-5 text-sm font-bold text-rose-700" role="status"></p>
+					</div>
 					<div>
 						<!-- Statusknapper: hver knap gemmer bordet og sender evt. en ret til køkkenet.
 						     data-status skal matche nøglerne i statuses/courseByStatus i JS. -->
@@ -343,7 +373,7 @@
 							(fx 1, 2, 3...) – lad feltet stå tomt for at bruge booking-nummeret. Bordkortene sorteres efter dette nummer, laveste først. Gælder alle
 							dage.
 						</p>
-						<div id="tableRoomRows" class="grid max-h-64 grid-cols-1 gap-1 overflow-y-auto pr-1 sm:grid-cols-2"></div>
+						<div id="tableRoomRows" class="grid max-h-64 grid-cols-1 gap-1 overflow-y-auto pr-1"></div>
 					</div>
 					<div class="grid grid-cols-2 gap-2 pt-2">
 						<button id="saveSettings" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-bold text-white hover:bg-slate-700">Gem opsætning</button
@@ -653,6 +683,10 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			const modalStatus = document.querySelector("#modalStatus");
 			const statusHint = document.querySelector("#statusHint");
 			const bookingInfo = document.querySelector("#bookingInfo");
+			const bookingEditForm = document.querySelector("#bookingEditForm");
+			const bookingEditActions = document.querySelector("#bookingEditActions");
+			const bookingEditMessage = document.querySelector("#bookingEditMessage");
+			const editBookingToggle = document.querySelector("#editBookingToggle");
 			const tableNote = document.querySelector("#tableNote");
 			const saveNoteButton = document.querySelector("#saveNote");
 			const saveMessage = document.querySelector("#saveMessage");
@@ -1585,7 +1619,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			   12. BORD-MODAL
 			---------------------------------------------------------------------------- */
 
-			// Viser bookingens faste data (fra import) som en skrivebeskyttet oversigt.
+			// Viser bookingens data (fra import) som en skrivebeskyttet oversigt.
 			function renderBookingInfo(table) {
 				const extras = table.extras || {};
 				const cells = [
@@ -1605,14 +1639,100 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					.join("");
 			}
 
-			// Åbner et bord og fylder modalen med bookingens data (kun status og note kan rettes).
+			// Samme felter som ovenfor, men som inputs – bruges når "Rediger" er trykket.
+			// Vigtigt, fordi der ofte dukker flere eller færre gæster op, end der er
+			// reserveret til, og personalet skal kunne rette det med det samme.
+			function renderBookingEditForm(table) {
+				const extras = table.extras || {};
+				const fields = [
+					["name", "Navn", table.name || "", "text"],
+					["phone", "Telefon", table.phone || "", "text"],
+					["guests", "Pax", toQuantity(table.guests), "number"],
+					["pescetarianQuantity", "Pescetar", toQuantity(extras.pescetarianQuantity), "number"],
+					["wineQuantity", "Vinmenu", toQuantity(extras.wineQuantity), "number"],
+					["pescetarianWineQuantity", "Vinmenu/pescetar", toQuantity(extras.pescetarianWineQuantity), "number"],
+					["welcomeDrinkQuantity", "Velkomstdrink", toQuantity(extras.welcomeDrinkQuantity), "number"],
+				];
+				bookingEditForm.innerHTML = fields
+					.map(
+						([field, label, value, type]) =>
+							`<div><label class="mb-0.5 block text-[10px] font-bold uppercase tracking-wide text-slate-400">${label}</label><input data-booking-field="${field}" type="${type}" ${type === "number" ? 'min="0" inputmode="numeric"' : ""} value="${escapeHtml(String(value))}" class="w-full min-w-0 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-bold text-slate-800 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" /></div>`,
+					)
+					.join("");
+			}
+
+			// Skifter bookingfelterne over i redigerbar tilstand.
+			function startEditingBooking() {
+				renderBookingEditForm(getActiveTable());
+				bookingInfo.classList.add("hidden");
+				editBookingToggle.classList.add("hidden");
+				bookingEditForm.classList.remove("hidden");
+				bookingEditActions.classList.remove("hidden");
+				bookingEditMessage.textContent = "";
+			}
+
+			// Skifter tilbage til den skrivebeskyttede oversigt, uden at gemme.
+			function stopEditingBooking() {
+				bookingInfo.classList.remove("hidden");
+				editBookingToggle.classList.remove("hidden");
+				bookingEditForm.classList.add("hidden");
+				bookingEditActions.classList.add("hidden");
+			}
+
+			// Gemmer de rettede bookingfelter på det aktive bord/hold. Rører kun de
+			// felter, der kommer fra bookingen – status, timere og note er upåvirkede.
+			async function saveBookingEdit() {
+				if (!activeTableId) return;
+				const slot = selectedSlotKey;
+				const id = activeTableId;
+				const field = (name) => bookingEditForm.querySelector(`[data-booking-field="${name}"]`)?.value ?? "";
+
+				const guests = toQuantity(field("guests"));
+				const extras = {
+					pescetarianQuantity: Math.min(guests, toQuantity(field("pescetarianQuantity"))),
+					wineQuantity: toQuantity(field("wineQuantity")),
+					pescetarianWineQuantity: toQuantity(field("pescetarianWineQuantity")),
+					welcomeDrinkQuantity: toQuantity(field("welcomeDrinkQuantity")),
+				};
+				const name = field("name").trim();
+				const phone = field("phone").trim();
+
+				const updatedTable = { ...getActiveTable(), name, phone, guests, extras };
+				tables[slot] = { ...(tables[slot] || {}), [id]: updatedTable };
+
+				renderBookingInfo(updatedTable);
+				stopEditingBooking();
+				updateGuestGuard();
+				renderTables();
+				if (activeView === "kitchen") renderKitchen();
+				bookingEditMessage.textContent = "Gemmer...";
+
+				try {
+					if (window.database) {
+						await update(ref(window.database), {
+							[`tables/${slot}/${id}/name`]: name,
+							[`tables/${slot}/${id}/phone`]: phone,
+							[`tables/${slot}/${id}/guests`]: guests,
+							[`tables/${slot}/${id}/extras`]: extras,
+						});
+					}
+					bookingEditMessage.textContent = "Booking opdateret";
+				} catch (error) {
+					console.error(error);
+					bookingEditMessage.textContent = "Kunne ikke gemme ændringen.";
+				}
+			}
+
+			// Åbner et bord og fylder modalen med bookingens data (status, note og booking kan rettes).
 			function openModal(id) {
 				activeTableId = id;
 				const table = getActiveTable();
 
 				modalTitle.textContent = `Bord ${getDisplayNumber(id)}`;
 				tableNote.value = table.note || "";
+				stopEditingBooking();
 				renderBookingInfo(table);
+				bookingEditMessage.textContent = "";
 
 				updateStatusButtons(table.status);
 				saveMessage.textContent = "";
@@ -1851,6 +1971,13 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			document.querySelector("#closeModal").addEventListener("click", closeModal);
 			document.querySelector("#closeModalBottom").addEventListener("click", closeModal);
 			saveNoteButton.addEventListener("click", saveNote);
+			editBookingToggle.addEventListener("click", startEditingBooking);
+			document.querySelector("#cancelBookingEdit").addEventListener("click", () => {
+				stopEditingBooking();
+				renderBookingInfo(getActiveTable());
+				bookingEditMessage.textContent = "";
+			});
+			document.querySelector("#saveBookingEdit").addEventListener("click", saveBookingEdit);
 			modal.addEventListener("click", (event) => {
 				if (event.target === modal) closeModal();
 			});
