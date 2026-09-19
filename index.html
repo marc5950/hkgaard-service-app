@@ -178,7 +178,12 @@
 					</div>
 					<span id="kitchenCount" class="rounded-full bg-amber-100 px-3 py-2 text-sm font-bold text-amber-900">0 aktive</span>
 				</div>
-				<div id="kitchenSummary" class="mb-2 flex flex-wrap gap-2" aria-label="Mangler i køkkenet">
+				<div id="kitchenDayTotals" class="mb-2 flex flex-wrap gap-2" aria-label="Total for hele dagen">
+					<span class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700"
+						>Pax for dagen (forret/hovedret/dessert): <strong id="dayTotalPax">0 pax</strong></span
+					>
+				</div>
+				<div id="kitchenSummary" class="mb-6 flex flex-wrap gap-2" aria-label="Mangler i køkkenet">
 					<span class="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-900"
 						>Forret mangler: <strong id="starterMissing">0 pax</strong></span
 					>
@@ -192,13 +197,11 @@
 						>Dessert mangler: <strong id="dessertMissing">0 pax</strong></span
 					>
 				</div>
-				<div id="kitchenDayTotals" class="mb-6 flex flex-wrap gap-2" aria-label="Total for hele dagen">
-					<span class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700"
-						>Pax for dagen (forret/hovedret/dessert): <strong id="dayTotalPax">0 pax</strong></span
-					>
-				</div>
+
 				<div id="kitchenOrders" class="grid gap-5 md:grid-cols-2 xl:grid-cols-3"></div>
-				<p id="emptyKitchen" class="rounded-2xl border-2 border-dashed border-slate-300 p-10 text-center text-slate-500">Ingen aktive bestillinger</p>
+				<p id="emptyKitchen" class="rounded-2xl border-2 border-dashed border-slate-300 p-10 text-center text-slate-500">
+					Ingen aktive bestillinger. Er du på den rigtige tid?
+				</p>
 			</section>
 		</div>
 
