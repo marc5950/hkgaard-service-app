@@ -70,6 +70,22 @@
 					box-shadow: 0 0 0 7px rgba(245, 158, 11, 0.38);
 				}
 			}
+			/* Blinker på et hold-faneblad, når der er en aktiv køkkenordre på et hold,
+			   man ikke selv kigger på lige nu – se renderTimeSlotTabs. */
+			.time-slot-tab-alert {
+				animation: time-slot-alert-pulse 1.1s ease-in-out infinite;
+			}
+			@keyframes time-slot-alert-pulse {
+				0%,
+				100% {
+					box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.45);
+					background-color: rgb(255, 255, 255);
+				}
+				50% {
+					box-shadow: 0 0 0 5px rgba(225, 29, 72, 0);
+					background-color: rgb(254, 226, 226);
+				}
+			}
 			/* Modaler (bord + opsætning) */
 			.modal-backdrop {
 				background: rgba(23, 32, 42, 0.58);
@@ -823,17 +839,57 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				return Array.from(numbers).sort((a, b) => Number(a) - Number(b));
 			}
 
+			// Hvilket hold er "aktuelt" lige nu, ud fra klokken? Det er det seneste hold,
+			// hvis starttidspunkt er nået – før det første hold på dagen regnes det første
+			// hold for aktuelt (så der altid er præcis ét markeret som "Nu").
+			function getCurrentSlotKey() {
+				const now = new Date();
+				const nowMinutes = now.getHours() * 60 + now.getMinutes();
+				let current = slotKey(TIME_SLOTS[0]);
+				TIME_SLOTS.forEach((slot) => {
+					const [hours, minutes] = slot.split(":").map(Number);
+					if (hours * 60 + minutes <= nowMinutes) current = slotKey(slot);
+				});
+				return current;
+			}
+
+			// Har et hold en ventende (endnu ikke trykket ud) køkkenordre?
+			function slotHasPendingOrders(key) {
+				return Object.values(kitchenOrders).some((order) => order.status === "pending" && order.slot === key);
+			}
+
 			/* ----------------------------------------------------------------------------
 			   6. HOLD + LOKALER
 			---------------------------------------------------------------------------- */
 
 			// Fanerne 13:30 / 17:30 / 19:45 i toppen. Styrer både bordoversigt og køkken.
+			// Det aktuelle hold (ud fra klokken) er markeret med en ring og "Nu". Et hold,
+			// man ikke selv kigger på, blinker rødt, hvis det har en ventende køkkenordre.
 			function renderTimeSlotTabs() {
+				const currentKey = getCurrentSlotKey();
 				timeSlotTabs.innerHTML = TIME_SLOTS.map((slot) => {
 					const key = slotKey(slot);
 					const count = Object.keys(tables[key] || {}).length;
 					const isActive = key === selectedSlotKey;
-					return `<button data-slot="${key}" class="rounded-xl px-4 py-2.5 text-sm font-bold transition ${isActive ? "bg-slate-900 text-white hover:bg-slate-700" : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"}">${slot}${count ? ` · ${count} borde` : ""}</button>`;
+					const isCurrent = key === currentKey;
+					const needsAttention = !isActive && slotHasPendingOrders(key);
+					// Farve/baggrund og ring hører til hver sit formål og bygges hver for sig,
+					// så der aldrig er to konkurrerende ring-bredde-klasser på samme knap.
+					const colorClasses = isActive
+						? "bg-slate-900 text-white hover:bg-slate-700 active:bg-slate-950"
+						: "bg-white text-slate-700 hover:bg-slate-50 active:bg-slate-100";
+					const ringClasses = isCurrent ? "ring-2 ring-offset-1 ring-emerald-500" : isActive ? "" : "ring-1 ring-slate-200";
+					// "Nu"-mærkets farver følger gruppens (knappens) egne hover/active-tilstande,
+					// så det altid passer til baggrunden – mørk badge på den mørke, valgte
+					// knap, lys badge på de hvide knapper, uanset museknappens tilstand.
+					const nowBadge = isCurrent
+						? `<span class="rounded-full ml-1 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+								isActive
+									? "bg-emerald-400 text-emerald-950 group-hover:bg-emerald-300 group-active:bg-emerald-200"
+									: "bg-emerald-100 text-emerald-700 group-hover:bg-emerald-100 group-active:bg-emerald-200"
+							}">Nu</span>`
+						: "";
+					return `<button data-slot="${key}" class="group flex flex-col items-center gap-1 rounded-xl px-4 py-2.5 text-sm font-bold transition ${colorClasses} ${ringClasses} ${needsAttention ? "time-slot-tab-alert" : ""}"><span>${slot}${nowBadge}${count ? ` · ${count} borde` : ""}</span></button>`;
 				}).join("");
 				timeSlotTabs.querySelectorAll("[data-slot]").forEach((button) =>
 					button.addEventListener("click", () => {
@@ -1556,6 +1612,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 
 				delete kitchenOrders[orderId];
 				renderKitchen();
+				renderTimeSlotTabs();
 
 				if (order.readyStatus) {
 					const currentTable = (tables[slot] && tables[slot][order.tableId]) || emptyTable;
@@ -1608,6 +1665,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					// Demo-tilstand uden Firebase: gem kun lokalt.
 					kitchenOrders[`demo-${timestamp}`] = order;
 					renderKitchen();
+					renderTimeSlotTabs();
 				}
 			}
 
@@ -2051,7 +2109,9 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			setView(window.location.hash === "#kokken" ? "kitchen" : "tables");
 
 			// Ventetiderne i køkkenkøen og de to timere på bordkortene tikker videre af sig selv.
+			// Fanerne gentegnes også, så "Nu"-markeringen flytter sig, når klokken passerer et nyt hold.
 			setInterval(() => {
+				renderTimeSlotTabs();
 				renderTables();
 				if (activeView === "kitchen") renderKitchen();
 			}, 10000);
@@ -2114,6 +2174,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					// Køkkenkøen (hovedret/dessert).
 					onValue(ref(window.database, "kitchenOrders"), (snapshot) => {
 						kitchenOrders = snapshot.val() || {};
+						renderTimeSlotTabs();
 						if (activeView === "kitchen") renderKitchen();
 					});
 				} catch (error) {
