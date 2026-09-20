@@ -324,6 +324,21 @@
 						</div>
 					</div>
 					<div>
+						<div class="mb-1.5 flex items-center justify-between">
+							<p class="text-sm font-bold text-slate-700">Ekstra drikkevarer</p>
+							<button
+								id="openDrinksPicker"
+								type="button"
+								class="shrink-0 rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-bold text-slate-600 transition hover:bg-slate-50">
+								+ Tilføj drikkevarer
+							</button>
+						</div>
+						<!-- Til gæster uden vinmenu, eller ekstra ud over den. Selve valget af
+						     konkrete varer sker i #drinksPickerModal; her vises kun overblikket,
+						     så det er nemt at overføre til kassen ved betaling. -->
+						<div id="drinksSummary" class="space-y-1 rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-sm"></div>
+					</div>
+					<div>
 						<label for="tableNote" class="mb-2 block text-sm font-bold text-slate-700">Note</label
 						><textarea
 							id="tableNote"
@@ -394,6 +409,20 @@
 						</p>
 						<div id="tableRoomRows" class="grid max-h-64 grid-cols-1 gap-1 overflow-y-auto pr-1"></div>
 					</div>
+					<div class="border-t border-slate-200 pt-3">
+						<div class="flex items-center justify-between gap-2">
+							<div>
+								<p class="text-sm font-bold text-slate-700">Drikkekort</p>
+								<p class="text-xs text-slate-500">De konkrete varer, tjenerne kan vælge under "+ Tilføj drikkevarer" på et bord.</p>
+							</div>
+							<button
+								id="openDrinkCatalog"
+								type="button"
+								class="shrink-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50">
+								Rediger drikkekort
+							</button>
+						</div>
+					</div>
 					<div class="grid grid-cols-2 gap-2 pt-2">
 						<button id="saveSettings" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-bold text-white hover:bg-slate-700">Gem opsætning</button
 						><button
@@ -403,6 +432,66 @@
 						</button>
 					</div>
 					<p id="settingsMessage" class="min-h-5 text-sm font-bold text-rose-700" role="status"></p>
+				</div>
+			</div>
+		</div>
+
+		<!-- ===== Drikkevare-modal: tjenerne vælger konkrete varer for det åbne bord ===== -->
+		<div
+			id="drinksPickerModal"
+			class="modal-backdrop fixed inset-0 z-50 hidden items-end justify-center overflow-hidden p-3 sm:items-center sm:p-6"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="drinksPickerTitle">
+			<div
+				class="modal-panel my-auto max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
+				<div class="flex items-center justify-between border-b border-slate-200 p-4 sm:p-5">
+					<h2 id="drinksPickerTitle" class="font-display text-xl font-bold text-slate-900">Tilføj drikkevarer</h2>
+					<button
+						id="closeDrinksPicker"
+						class="rounded-full p-2 text-2xl leading-none text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+						aria-label="Luk">
+						&times;
+					</button>
+				</div>
+				<div id="drinksPickerBody" class="space-y-4 p-4 sm:p-5"></div>
+				<div class="p-4 pt-0 sm:p-5 sm:pt-0">
+					<button
+						id="closeDrinksPickerBottom"
+						class="w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-bold text-white transition hover:bg-slate-700">
+						Færdig
+					</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- ===== Drikkekort-modal: admin vedligeholder de konkrete varer pr. overkategori ===== -->
+		<div
+			id="drinkCatalogModal"
+			class="modal-backdrop fixed inset-0 z-50 hidden items-end justify-center overflow-hidden p-3 sm:items-center sm:p-6"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="drinkCatalogTitle">
+			<div
+				class="modal-panel my-auto max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
+				<div class="flex items-center justify-between bg-slate-800 px-4 py-3 text-white sm:px-5">
+					<div>
+						<p class="text-xs font-bold uppercase tracking-[.2em] text-white/60">Administration</p>
+						<h2 id="drinkCatalogTitle" class="font-display text-2xl font-bold">Drikkekort</h2>
+					</div>
+					<button
+						id="closeDrinkCatalog"
+						class="rounded-full p-2 text-2xl leading-none text-white/70 hover:bg-white/10 hover:text-white"
+						aria-label="Luk drikkekort">
+						&times;
+					</button>
+				</div>
+				<div class="space-y-4 p-4 sm:p-5">
+					<p class="text-xs text-slate-500">
+						De syv overkategorier er faste. Herunder tilføjer du de konkrete varer (mærke, type og evt. størrelse) inden for hver – fx "Coca-Cola
+						0,33L" under Sodavand. Ændringer gemmes med det samme.
+					</p>
+					<div id="drinkCatalogSections" class="space-y-4"></div>
 				</div>
 			</div>
 		</div>
@@ -507,12 +596,13 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 
 			/* ----------------------------------------------------------------------------
 			   1. FIREBASE-OPSÆTNING
-			   Data ligger i Firebase Realtime Database under fem nøgler:
+			   Data ligger i Firebase Realtime Database under seks nøgler:
 			     tables/{hold}/{bordnr}   – én booking pr. bord pr. tidspunkt (fra import)
 			     kitchenOrders/           – én post pr. hovedret/dessert-bestilling
 			     settings/rooms           – lokalernes navne og farve
 			     settings/tableRooms      – hvilket lokale hvert bordnummer hører til
 			     settings/tableNumbers    – bordskilt-nummer, hvis personalet har sat et (ellers vises booking-nummeret)
+			     settings/drinkCatalog    – konkrete drikkevarer pr. overkategori, vedligeholdt af admin
 			   Uden gyldige nøgler kører appen videre i "demo"-tilstand uden synkronisering.
 			---------------------------------------------------------------------------- */
 			import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -619,6 +709,18 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				dessert_ordered: { course: "Dessert", readyStatus: "dessert_ready" },
 			};
 
+			// Drikkevarer der ikke er en del af den forudbestilte vinmenu – tjenerne
+			// tæller dem op undervejs, så det er nemt at overføre til kassen ved betaling.
+			const DRINK_TYPES = [
+				["soda", "Sodavand", "🥤"],
+				["lemonade", "Lemonade", "🍋"],
+				["juice", "Juice", "🧃"],
+				["noda", "Noda", "🍾"],
+				["beer", "Øl", "🍺"],
+				["water", "Vand/Danskvand", "💧"],
+				["wine", "Vin", "🍷"],
+			];
+
 			// Farvevalg pr. lokale (bruges i opsætnings-modalen).
 			const roomColors = {
 				rose: { label: "Rød", accent: "text-rose-700", line: "bg-rose-600", nav: "bg-rose-100 text-rose-800" },
@@ -664,6 +766,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			];
 			let tableRoomAssignments = {}; // { bordnummer: lokaleId }
 			let tableDisplayNumbers = {}; // { bordnummer (fra booking): bordskilt-nummer, valgt af personalet }
+			let drinkCatalog = {}; // { kategorinøgle: [{ id, name }, ...] } – admin-redigeret liste af konkrete varer
 
 			let currentRoomGroups = []; // genberegnes i renderTables(): [{ id, name, accent, line, nav, tableIds }]
 			const collapsedRooms = new Set(); // id'er på lokaler, der er klappet sammen
@@ -706,6 +809,11 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			const bookingEditActions = document.querySelector("#bookingEditActions");
 			const bookingEditMessage = document.querySelector("#bookingEditMessage");
 			const editBookingToggle = document.querySelector("#editBookingToggle");
+			const drinksSummary = document.querySelector("#drinksSummary");
+			const drinksPickerModal = document.querySelector("#drinksPickerModal");
+			const drinksPickerBody = document.querySelector("#drinksPickerBody");
+			const drinkCatalogModal = document.querySelector("#drinkCatalogModal");
+			const drinkCatalogSections = document.querySelector("#drinkCatalogSections");
 			const tableNote = document.querySelector("#tableNote");
 			const saveNoteButton = document.querySelector("#saveNote");
 			const saveMessage = document.querySelector("#saveMessage");
@@ -736,6 +844,38 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			// Sikrer et helt, ikke-negativt tal (bruges på alle antalsfelter).
 			function toQuantity(value) {
 				return Math.max(0, Number(value) || 0);
+			}
+
+			// Ekstra drikkevarer (sodavand, øl, vin osv.) tastet ind af tjenerne – adskilt
+			// fra den forudbestilte vinmenu, som kommer fra bookingen. Strukturen er
+			// { kategorinøgle: { vareId: antal } }, hvor vareId peger ind i drinkCatalog.
+			function getDrinks(table) {
+				return (table.extras && table.extras.drinks) || {};
+			}
+			function getDrinksTotal(table) {
+				const drinks = getDrinks(table);
+				return Object.values(drinks).reduce(
+					(sum, items) => sum + Object.values(items || {}).reduce((itemSum, count) => itemSum + toQuantity(count), 0),
+					0,
+				);
+			}
+			// Flad liste af valgte varer > 0, til oversigten i bordets modal.
+			function getDrinkEntries(table) {
+				const drinks = getDrinks(table);
+				const entries = [];
+				DRINK_TYPES.forEach(([categoryKey, categoryLabel]) => {
+					Object.entries(drinks[categoryKey] || {}).forEach(([itemId, count]) => {
+						const quantity = toQuantity(count);
+						if (quantity <= 0) return;
+						const item = (drinkCatalog[categoryKey] || []).find((candidate) => candidate.id === itemId);
+						entries.push({ categoryKey, categoryLabel, itemId, name: item?.name || "Fjernet vare", quantity });
+					});
+				});
+				return entries;
+			}
+			// Et kort, unikt id til en ny drikkevare i kataloget – sikkert som Firebase-nøgle.
+			function generateCatalogItemId() {
+				return `d${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 			}
 
 			// Bordet der er åbnet i modalen lige nu, for det valgte hold.
@@ -1163,6 +1303,9 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					wineQuantity: toQuantity(booking.vinmenu ?? booking.wine),
 					pescetarianWineQuantity: toQuantity(booking.drikmenu ?? booking.pescetarianWine),
 					welcomeDrinkQuantity: toQuantity(booking.gt ?? booking.welcomeDrink),
+					// Ekstra drikkevarer kommer aldrig fra bookingen – de tastes ind af
+					// tjenerne og skal bevares uændret, selvom bordet importeres igen.
+					drinks: existingTable?.extras?.drinks || {},
 				};
 				return {
 					name: booking.name || booking.navn || "",
@@ -1351,6 +1494,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				const status = statuses[table.status] || statuses.empty;
 				const extras = table.extras || {};
 				const pescetarianQuantity = toQuantity(extras.pescetarianQuantity);
+				const drinksTotalForCard = getDrinksTotal(table);
 
 				// Prikken pulserer, når køkkenet har meldt en ret klar. Så længe den blinker,
 				// kan man klikke direkte på den for at markere retten som serveret – uden at
@@ -1399,7 +1543,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						`<span title="Vinmenu til pescetar x${extras.pescetarianWineQuantity}" aria-label="Vinmenu til pescetar" class="rounded-full bg-white/80 px-1.5 py-0.5 shadow-sm ring-1 ring-black/10">🐟🍷${extras.pescetarianWineQuantity}</span>`,
 				].filter(Boolean);
 
-				const details = `<div class="mt-1 flex items-start justify-between gap-2"><div class="min-w-0 flex-1">${table.name ? `<p class="truncate text-[11px] font-bold text-slate-700 sm:text-xs">${escapeHtml(table.name)}</p>` : ""}${pescetarianQuantity ? `<p class="text-[11px] font-bold text-amber-800 sm:text-xs">${pescetarianQuantity} pescetar</p>` : ""}${table.note ? `<p class="mt-1 max-w-full truncate text-[11px] font-semibold text-slate-600 sm:text-xs" title="${escapeHtml(table.note)}">${escapeHtml(table.note)}</p>` : ""}</div><div class="flex shrink-0 items-center gap-1.5">${readyBadge}<span class="shrink-0 rounded-full px-2 py-1 text-[10px] font-bold leading-tight ${status.badge} sm:text-xs">${status.label}</span></div></div>`;
+				const details = `<div class="mt-1 flex items-start justify-between gap-2"><div class="min-w-0 flex-1">${table.name ? `<p class="truncate text-[11px] font-bold text-slate-700 sm:text-xs">${escapeHtml(table.name)}</p>` : ""}${pescetarianQuantity ? `<p class="text-[11px] font-bold text-amber-800 sm:text-xs">${pescetarianQuantity} pescetar</p>` : ""}${drinksTotalForCard ? `<p class="text-[11px] font-bold text-violet-700 sm:text-xs" title="Ekstra drikkevarer, der mangler at blive slået ind i kassen">🧾 ${drinksTotalForCard} drikkevarer</p>` : ""}${table.note ? `<p class="mt-1 max-w-full truncate text-[11px] font-semibold text-slate-600 sm:text-xs" title="${escapeHtml(table.note)}">${escapeHtml(table.note)}</p>` : ""}</div><div class="flex shrink-0 items-center gap-1.5">${readyBadge}<span class="shrink-0 rounded-full px-2 py-1 text-[10px] font-bold leading-tight ${status.badge} sm:text-xs">${status.label}</span></div></div>`;
 
 				// Er retten klar, får prikken en større, usynlig tap-flade omkring sig
 				// (data-quick-serve), så den er nem at ramme på en telefon.
@@ -1754,6 +1898,9 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					wineQuantity: toQuantity(field("wineQuantity")),
 					pescetarianWineQuantity: toQuantity(field("pescetarianWineQuantity")),
 					welcomeDrinkQuantity: toQuantity(field("welcomeDrinkQuantity")),
+					// Booking-redigeringen rører kun bookingfelterne – de indtastede
+					// drikkevarer skal ikke forsvinde, når man retter fx antal gæster.
+					drinks: getActiveTable().extras?.drinks || {},
 				};
 				const name = field("name").trim();
 				const phone = field("phone").trim();
@@ -1794,11 +1941,189 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				stopEditingBooking();
 				renderBookingInfo(table);
 				bookingEditMessage.textContent = "";
+				renderDrinksSummary(table);
 
 				updateStatusButtons(table.status);
 				saveMessage.textContent = "";
 				modal.classList.remove("hidden");
 				modal.classList.add("flex");
+			}
+
+			// Viser, hvad der er valgt under "+ Tilføj drikkevarer" – selve valget sker i
+			// drinksPickerModal. Hver linje kan fjernes helt herfra ved en fejltastning.
+			function renderDrinksSummary(table) {
+				const entries = getDrinkEntries(table);
+				if (!entries.length) {
+					drinksSummary.innerHTML = `<p class="text-xs text-slate-400">Ingen ekstra drikkevarer endnu.</p>`;
+					return;
+				}
+				drinksSummary.innerHTML =
+					entries
+						.map(
+							(entry) =>
+								`<div class="flex items-center justify-between gap-2"><span class="min-w-0 truncate font-semibold text-slate-700">${escapeHtml(entry.name)} <span class="text-slate-400">· ${entry.categoryLabel}</span></span><span class="flex shrink-0 items-center gap-2"><span class="font-bold text-slate-900">×${entry.quantity}</span><button type="button" data-remove-drink-entry="${entry.categoryKey}:${entry.itemId}" class="rounded-md px-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50" aria-label="Fjern ${escapeHtml(entry.name)}">✕</button></span></div>`,
+						)
+						.join("") +
+					`<div class="mt-1 border-t border-slate-200 pt-1 text-right text-xs font-bold text-slate-500">I alt: ${getDrinksTotal(table)}</div>`;
+				drinksSummary.querySelectorAll("[data-remove-drink-entry]").forEach((button) =>
+					button.addEventListener("click", () => {
+						const [categoryKey, itemId] = button.dataset.removeDrinkEntry.split(":");
+						setDrinkItemCount(categoryKey, itemId, 0);
+					}),
+				);
+			}
+
+			// Åbner varevælgeren for det bord, der allerede er åbent i bordets modal.
+			function openDrinksPicker() {
+				if (!activeTableId) return;
+				renderDrinksPickerBody(getActiveTable());
+				drinksPickerModal.classList.remove("hidden");
+				drinksPickerModal.classList.add("flex");
+			}
+			function closeDrinksPicker() {
+				drinksPickerModal.classList.add("hidden");
+				drinksPickerModal.classList.remove("flex");
+				renderDrinksSummary(getActiveTable());
+			}
+
+			// Tegner de syv overkategorier med deres konkrete varer og en +/- stepper hver.
+			function renderDrinksPickerBody(table) {
+				const drinks = getDrinks(table);
+				drinksPickerBody.innerHTML = DRINK_TYPES.map(([categoryKey, categoryLabel, icon]) => {
+					const items = drinkCatalog[categoryKey] || [];
+					const rows = items.length
+						? items
+								.map((item) => {
+									const count = toQuantity((drinks[categoryKey] || {})[item.id]);
+									return /*html*/ `<div class="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5"><span class="min-w-0 truncate text-sm font-semibold text-slate-700">${escapeHtml(item.name)}</span><div class="flex shrink-0 items-center gap-1.5"><button type="button" data-drink-decrement="${categoryKey}:${item.id}" class="flex h-7 w-7 items-center justify-center rounded-md bg-white text-sm font-bold text-slate-500 ring-1 ring-slate-300 transition hover:bg-slate-100" aria-label="Fjern en ${escapeHtml(item.name)}">−</button><span class="w-5 text-center text-sm font-bold text-slate-900">${count}</span><button type="button" data-drink-increment="${categoryKey}:${item.id}" class="flex h-7 w-7 items-center justify-center rounded-md bg-slate-900 text-sm font-bold text-white transition hover:bg-slate-700" aria-label="Tilføj en ${escapeHtml(item.name)}">+</button></div></div>`;
+								})
+								.join("")
+						: /*html*/ `<p class="rounded-lg bg-slate-50 px-2.5 py-2 text-xs text-slate-400">Ingen varer tilføjet endnu. Tilføj dem under Opsætning → Drikkekort.</p>`;
+					return /*html*/ `<div><p class="mb-1.5 text-sm font-bold text-slate-700">${icon} ${categoryLabel}</p><div class="space-y-1">${rows}</div></div>`;
+				}).join("");
+				drinksPickerBody
+					.querySelectorAll("[data-drink-increment]")
+					.forEach((button) => button.addEventListener("click", () => adjustDrinkItem(...button.dataset.drinkIncrement.split(":"), 1)));
+				drinksPickerBody
+					.querySelectorAll("[data-drink-decrement]")
+					.forEach((button) => button.addEventListener("click", () => adjustDrinkItem(...button.dataset.drinkDecrement.split(":"), -1)));
+			}
+
+			// Lægger én drikkevare til/fra på det åbne bord og gemmer med det samme, så
+			// tælleren aldrig er bagud, uanset hvornår nogen kigger på bordet igen.
+			async function adjustDrinkItem(categoryKey, itemId, delta) {
+				const table = getActiveTable();
+				const current = toQuantity((getDrinks(table)[categoryKey] || {})[itemId]);
+				await setDrinkItemCount(categoryKey, itemId, current + delta);
+			}
+
+			// Sætter antallet af én bestemt vare direkte (bruges både af steppere og "✕" i oversigten).
+			async function setDrinkItemCount(categoryKey, itemId, nextCount) {
+				if (!activeTableId) return;
+				const slot = selectedSlotKey;
+				const id = activeTableId;
+				const table = getActiveTable();
+				const drinks = { ...getDrinks(table) };
+				const categoryItems = { ...(drinks[categoryKey] || {}) };
+				const quantity = Math.max(0, toQuantity(nextCount));
+				if (quantity > 0) categoryItems[itemId] = quantity;
+				else delete categoryItems[itemId];
+				drinks[categoryKey] = categoryItems;
+
+				const updatedTable = { ...table, extras: { ...(table.extras || {}), drinks } };
+				tables[slot] = { ...(tables[slot] || {}), [id]: updatedTable };
+
+				if (!drinksPickerModal.classList.contains("hidden")) renderDrinksPickerBody(updatedTable);
+				renderDrinksSummary(updatedTable);
+				renderTables();
+
+				try {
+					if (window.database) await update(ref(window.database), { [`tables/${slot}/${id}/extras/drinks/${categoryKey}`]: categoryItems });
+				} catch (error) {
+					console.error(error);
+				}
+			}
+
+			/* ---- Drikkekort-editor (admin, i Opsætning) ---- */
+
+			function openDrinkCatalogEditor() {
+				renderDrinkCatalogEditor();
+				drinkCatalogModal.classList.remove("hidden");
+				drinkCatalogModal.classList.add("flex");
+			}
+			function closeDrinkCatalogEditor() {
+				drinkCatalogModal.classList.add("hidden");
+				drinkCatalogModal.classList.remove("flex");
+			}
+
+			// Én sektion pr. overkategori: liste af varer (med Fjern) + felt til at tilføje en ny.
+			function renderDrinkCatalogEditor() {
+				drinkCatalogSections.innerHTML = DRINK_TYPES.map(([categoryKey, categoryLabel, icon]) => {
+					const items = drinkCatalog[categoryKey] || [];
+					const rows = items.length
+						? items
+								.map(
+									(item /*html*/) =>
+										`<div class="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5"><span class="min-w-0 truncate text-sm text-slate-700">${escapeHtml(item.name)}</span><button type="button" data-remove-catalog-item="${categoryKey}:${item.id}" class="shrink-0 rounded-md px-1.5 py-0.5 text-xs font-bold text-rose-600 hover:bg-rose-50">Fjern</button></div>`,
+								)
+								.join("")
+						: `<p class="text-xs text-slate-400">Ingen varer endnu.</p>`;
+					return /*html*/ `<div class="rounded-lg border border-slate-200 p-3">
+						<p class="mb-2 text-sm font-bold text-slate-700">${icon} ${categoryLabel}</p>
+						<div class="space-y-1">${rows}</div>
+						<div class="mt-2 flex gap-1.5">
+							<input data-catalog-input="${categoryKey}" type="text" placeholder="Fx Coca-Cola 0,33L" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" />
+							<button type="button" data-catalog-add="${categoryKey}" class="shrink-0 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-bold text-white hover:bg-slate-700">Tilføj</button>
+						</div>
+					</div>`;
+				}).join("");
+
+				drinkCatalogSections.querySelectorAll("[data-catalog-add]").forEach((button) => {
+					const categoryKey = button.dataset.catalogAdd;
+					const input = drinkCatalogSections.querySelector(`[data-catalog-input="${categoryKey}"]`);
+					const submit = () => {
+						const name = input.value.trim();
+						if (!name) return;
+						addCatalogItem(categoryKey, name);
+						input.value = "";
+					};
+					button.addEventListener("click", submit);
+					input.addEventListener("keydown", (event) => {
+						if (event.key === "Enter") {
+							event.preventDefault();
+							submit();
+						}
+					});
+				});
+				drinkCatalogSections.querySelectorAll("[data-remove-catalog-item]").forEach((button) =>
+					button.addEventListener("click", () => {
+						const [categoryKey, itemId] = button.dataset.removeCatalogItem.split(":");
+						removeCatalogItem(categoryKey, itemId);
+					}),
+				);
+			}
+
+			// Tilføjer/fjerner en vare i kataloget og gemmer med det samme (ingen "Gem"-knap
+			// her – det sker sjældent og skal ikke kunne glemmes utilsigtet).
+			async function addCatalogItem(categoryKey, name) {
+				const items = [...(drinkCatalog[categoryKey] || []), { id: generateCatalogItemId(), name }];
+				drinkCatalog = { ...drinkCatalog, [categoryKey]: items };
+				renderDrinkCatalogEditor();
+				try {
+					if (window.database) await update(ref(window.database), { [`settings/drinkCatalog/${categoryKey}`]: items });
+				} catch (error) {
+					console.error(error);
+				}
+			}
+			async function removeCatalogItem(categoryKey, itemId) {
+				const items = (drinkCatalog[categoryKey] || []).filter((item) => item.id !== itemId);
+				drinkCatalog = { ...drinkCatalog, [categoryKey]: items };
+				renderDrinkCatalogEditor();
+				try {
+					if (window.database) await update(ref(window.database), { [`settings/drinkCatalog/${categoryKey}`]: items });
+				} catch (error) {
+					console.error(error);
+				}
 			}
 
 			function closeModal() {
@@ -2043,7 +2368,10 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				if (event.target === modal) closeModal();
 			});
 			document.addEventListener("keydown", (event) => {
-				if (event.key === "Escape") closeModal();
+				if (event.key !== "Escape") return;
+				if (!drinksPickerModal.classList.contains("hidden")) closeDrinksPicker();
+				else if (!drinkCatalogModal.classList.contains("hidden")) closeDrinkCatalogEditor();
+				else closeModal();
 			});
 
 			// Admin-menuen (Opsætning + Importér) i toppen.
@@ -2074,6 +2402,17 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			document.querySelector("#saveSettings").addEventListener("click", saveSettings);
 			document.querySelector("#resetAllTables").addEventListener("click", resetAllTables);
 			document.querySelector("#resetTableRooms").addEventListener("click", resetTableRoomAssignments);
+			document.querySelector("#openDrinkCatalog").addEventListener("click", openDrinkCatalogEditor);
+			document.querySelector("#closeDrinkCatalog").addEventListener("click", closeDrinkCatalogEditor);
+			document.querySelector("#openDrinksPicker").addEventListener("click", openDrinksPicker);
+			document.querySelector("#closeDrinksPicker").addEventListener("click", closeDrinksPicker);
+			document.querySelector("#closeDrinksPickerBottom").addEventListener("click", closeDrinksPicker);
+			drinksPickerModal.addEventListener("click", (event) => {
+				if (event.target === drinksPickerModal) closeDrinksPicker();
+			});
+			drinkCatalogModal.addEventListener("click", (event) => {
+				if (event.target === drinkCatalogModal) closeDrinkCatalogEditor();
+			});
 			document.querySelector("#addRoom").addEventListener("click", () => {
 				settingsRooms.push({
 					id: `room-${Date.now()}`,
@@ -2169,6 +2508,14 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						tableDisplayNumbers = snapshot.val() || {};
 						renderTables();
 						if (activeView === "kitchen") renderKitchen();
+					});
+
+					// Drikkekortet: konkrete varer pr. overkategori, vedligeholdt af admin.
+					onValue(ref(window.database, "settings/drinkCatalog"), (snapshot) => {
+						drinkCatalog = snapshot.val() || {};
+						if (!drinkCatalogModal.classList.contains("hidden")) renderDrinkCatalogEditor();
+						if (activeTableId && !drinksPickerModal.classList.contains("hidden")) renderDrinksPickerBody(getActiveTable());
+						if (activeTableId) renderDrinksSummary(getActiveTable());
 					});
 
 					// Køkkenkøen (hovedret/dessert).
