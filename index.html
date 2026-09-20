@@ -166,7 +166,8 @@
 			<!-- Farveforklaring til bordkortene -->
 			<div id="statusLegend" class="mb-6 flex flex-wrap gap-2" aria-label="Statusforklaring">
 				<span class="rounded-full bg-fuchsia-100 px-3 py-1.5 text-xs font-bold text-fuchsia-800"
-					>🥂 Velkomstdrinks: <strong id="welcomeDrinkTotal">0</strong></span
+					><span class="rounded-full bg-white/80 px-1.5 py-0.5 shadow-sm ring-1 ring-black/10">🥂</span> Velkomstdrinks:
+					<strong id="welcomeDrinkTotal">0</strong></span
 				>
 				<span class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700">Grå · Ledigt</span>
 				<span class="rounded-full bg-rose-100 px-3 py-1.5 text-xs font-bold text-rose-800">Rød · Venter forret</span>
@@ -1242,12 +1243,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			// Nulstiller status/timere for alle borde på alle hold (booking-data bevares)
 			// og fjerner køkkenkøen – typisk før en ny dag.
 			async function resetAllTables() {
-				if (
-					!confirm(
-						"Nulstil status til 'Ikke ankommet' for ALLE borde på ALLE hold (13:30, 17:30 og 19:45)? Navn, pax og menuvalg bevares – kun status, timere og køkkenkøen ryddes.",
-					)
-				)
-					return;
+				if (!confirm("Nulstil status til 'Ikke ankommet' for ALLE borde på ALLE hold? Kun status, timere og køkkenkøen ryddes.")) return;
 				const nextTables = {};
 				TIME_SLOTS.forEach((slot) => {
 					const key = slotKey(slot);
