@@ -2131,18 +2131,27 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			// og har derfor ikke brug for et vare-felt (se hint-teksten i stedet).
 			function renderDrinkCatalogEditor() {
 				const categoryRows = drinkCategories
-					.map((category) => {
+					.map((category, categoryIndex) => {
 						const items = drinkCatalog[category.id] || [];
 						const itemRows = items.length
 							? items
 									.map(
-										(item) =>
-											/*html*/ `<div class="flex items-center justify-between gap-1.5 rounded-md bg-slate-50 px-2 py-1"><span class="min-w-0 truncate text-xs text-slate-700">${escapeHtml(item.name)}</span><button type="button" data-remove-catalog-item="${category.id}:${item.id}" class="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-bold text-rose-600 hover:bg-rose-50">Fjern</button></div>`,
+										(
+											item,
+											itemIndex,
+										) => /*html*/ `<div class="flex items-center justify-between gap-1 rounded-md bg-slate-50 px-1.5 py-1"><div class="flex min-w-0 items-center gap-1"><div class="flex shrink-0 flex-col gap-0.5">
+												<button type="button" data-move-item="${category.id}:${item.id}:up" ${itemIndex === 0 ? "disabled" : ""} class="flex h-3.5 w-4 items-center justify-center rounded-sm bg-slate-200 text-[8px] leading-none text-slate-600 hover:bg-slate-300 disabled:opacity-25 disabled:pointer-events-none" aria-label="Flyt ${escapeHtml(item.name)} op">▲</button>
+												<button type="button" data-move-item="${category.id}:${item.id}:down" ${itemIndex === items.length - 1 ? "disabled" : ""} class="flex h-3.5 w-4 items-center justify-center rounded-sm bg-slate-200 text-[8px] leading-none text-slate-600 hover:bg-slate-300 disabled:opacity-25 disabled:pointer-events-none" aria-label="Flyt ${escapeHtml(item.name)} ned">▼</button>
+											</div><span class="min-w-0 truncate text-xs text-slate-700">${escapeHtml(item.name)}</span></div><button type="button" data-remove-catalog-item="${category.id}:${item.id}" class="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-bold text-rose-600 hover:bg-rose-50">Fjern</button></div>`,
 									)
 									.join("")
 							: /*html*/ `<p class="text-[11px] text-slate-400">Ingen varer – kategorien er selv varen, og tjenerne får en +/- direkte på den.</p>`;
 						return /*html*/ `<div class="rounded-lg border border-slate-200 p-2.5" data-category-section="${category.id}">
 							<div class="mb-1.5 flex items-center gap-1.5">
+								<div class="flex shrink-0 flex-col gap-0.5">
+									<button type="button" data-move-category="${category.id}:up" ${categoryIndex === 0 ? "disabled" : ""} class="flex h-4 w-5 items-center justify-center rounded bg-slate-100 text-[9px] leading-none text-slate-600 hover:bg-slate-200 disabled:opacity-25 disabled:pointer-events-none" aria-label="Flyt ${escapeHtml(category.name)} op">▲</button>
+									<button type="button" data-move-category="${category.id}:down" ${categoryIndex === drinkCategories.length - 1 ? "disabled" : ""} class="flex h-4 w-5 items-center justify-center rounded bg-slate-100 text-[9px] leading-none text-slate-600 hover:bg-slate-200 disabled:opacity-25 disabled:pointer-events-none" aria-label="Flyt ${escapeHtml(category.name)} ned">▼</button>
+								</div>
 								<input data-category-name="${category.id}" type="text" value="${escapeHtml(category.name)}" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1 text-sm font-bold text-slate-800 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" aria-label="Kategorinavn" />
 								<button type="button" data-remove-category="${category.id}" class="shrink-0 rounded-lg px-2 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50">Fjern kategori</button>
 							</div>
@@ -2197,6 +2206,12 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						if (confirm("Fjern denne kategori og alle dens varer fra drikkekortet?")) removeCategory(button.dataset.removeCategory);
 					}),
 				);
+				drinkCatalogSections.querySelectorAll("[data-move-category]").forEach((button) =>
+					button.addEventListener("click", () => {
+						const [categoryId, direction] = button.dataset.moveCategory.split(":");
+						moveCategory(categoryId, direction);
+					}),
+				);
 				drinkCatalogSections.querySelectorAll("[data-catalog-add]").forEach((button) => {
 					const categoryId = button.dataset.catalogAdd;
 					const input = drinkCatalogSections.querySelector(`[data-catalog-input="${categoryId}"]`);
@@ -2220,6 +2235,44 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						removeCatalogItem(categoryId, itemId);
 					}),
 				);
+				drinkCatalogSections.querySelectorAll("[data-move-item]").forEach((button) =>
+					button.addEventListener("click", () => {
+						const [categoryId, itemId, direction] = button.dataset.moveItem.split(":");
+						moveCatalogItem(categoryId, itemId, direction);
+					}),
+				);
+			}
+
+			// Bytter plads på to nabo-elementer i et array; bruges til alle op/ned-pile.
+			function moveArrayItem(array, index, direction) {
+				const targetIndex = index + (direction === "up" ? -1 : 1);
+				if (targetIndex < 0 || targetIndex >= array.length) return array;
+				const reordered = [...array];
+				[reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+				return reordered;
+			}
+			// Flytter en hel kategori op/ned – rækkefølgen her styrer også rækkefølgen i
+			// varevælgeren og i oversigten på bordets modal, da begge følger drinkCategories.
+			async function moveCategory(categoryId, direction) {
+				const index = drinkCategories.findIndex((category) => category.id === categoryId);
+				if (index === -1) return;
+				drinkCategories = moveArrayItem(drinkCategories, index, direction);
+				renderDrinkCatalogEditor();
+				await saveDrinkCategories();
+			}
+			// Flytter én vare op/ned inden for dens egen kategori.
+			async function moveCatalogItem(categoryId, itemId, direction) {
+				const items = drinkCatalog[categoryId] || [];
+				const index = items.findIndex((item) => item.id === itemId);
+				if (index === -1) return;
+				const reordered = moveArrayItem(items, index, direction);
+				drinkCatalog = { ...drinkCatalog, [categoryId]: reordered };
+				renderDrinkCatalogEditor();
+				try {
+					if (window.database) await update(ref(window.database), { [`settings/drinkCatalog/${categoryId}`]: reordered });
+				} catch (error) {
+					console.error(error);
+				}
 			}
 
 			// Kategorier gemmes samlet som ét flad array under settings/drinkCategories –
