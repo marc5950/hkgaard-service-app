@@ -612,45 +612,45 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 
 		<script type="module">
 			/* ============================================================================
-			   BORDSTYRING · HESTKØBGAARD
-			   ----------------------------------------------------------------------------
-			   Dagen starter med en JSON-import af Dining Week-reservationerne (13:30,
-			   17:30, 19:45). Al bookingdata (navn, pax, menuvalg) kommer derfra – tjeneren
-			   redigerer kun status og en fri note. Appen har to visninger:
+						   BORDSTYRING · HESTKØBGAARD
+						   ----------------------------------------------------------------------------
+						   Dagen starter med en JSON-import af Dining Week-reservationerne (13:30,
+						   17:30, 19:45). Al bookingdata (navn, pax, menuvalg) kommer derfra – tjeneren
+						   redigerer kun status og en fri note. Appen har to visninger:
 
-			     1) Bordoversigt  – tjeneren vælger et hold, ser bordene og opdaterer status.
-			     2) Køkkenkø      – køkkenet ser forretter i alt for holdet (laves samlet)
-			                        samt hovedret/dessert-bestillinger, som "trykkes ud".
+						     1) Bordoversigt  – tjeneren vælger et hold, ser bordene og opdaterer status.
+						     2) Køkkenkø      – køkkenet ser forretter i alt for holdet (laves samlet)
+						                        samt hovedret/dessert-bestillinger, som "trykkes ud".
 
-			   Filens opbygning (søg efter overskrifterne):
-			     1.  FIREBASE-OPSÆTNING
-			     2.  KONSTANTER (statusser, farver, tidspunkter)
-			     3.  APPENS TILSTAND (data i hukommelsen)
-			     4.  DOM-REFERENCER (elementer på siden)
-			     5.  SMÅ HJÆLPEFUNKTIONER
-			     6.  HOLD + LOKALER (tidspunkt-faner, bordfordeling, hotbar)
-			     7.  OPSÆTNINGS-MODAL (lokalenavne/farver, bordfordeling, nulstil)
-			     8.  IMPORT-MODAL (indsæt dagens reservationer som JSON)
-			     9.  BORDOVERSIGT (tegn bordkortene)
-			     10. KØKKENKØ (forret i alt + hovedret/dessert-ordrer)
-			     11. KØKKENORDRER (opret bestillinger for hovedret/dessert)
-			     12. BORD-MODAL (åbn bord, statusknapper, note)
-			     13. EVENT-BINDINGER (hvilke klik gør hvad)
-			     14. OPSTART + FIREBASE-LYTTERE
-			   ============================================================================ */
+						   Filens opbygning (søg efter overskrifterne):
+						     1.  FIREBASE-OPSÆTNING
+						     2.  KONSTANTER (statusser, farver, tidspunkter)
+						     3.  APPENS TILSTAND (data i hukommelsen)
+						     4.  DOM-REFERENCER (elementer på siden)
+						     5.  SMÅ HJÆLPEFUNKTIONER
+						     6.  HOLD + LOKALER (tidspunkt-faner, bordfordeling, hotbar)
+						     7.  OPSÆTNINGS-MODAL (lokalenavne/farver, bordfordeling, nulstil)
+						     8.  IMPORT-MODAL (indsæt dagens reservationer som JSON)
+						     9.  BORDOVERSIGT (tegn bordkortene)
+						     10. KØKKENKØ (forret i alt + hovedret/dessert-ordrer)
+						     11. KØKKENORDRER (opret bestillinger for hovedret/dessert)
+						     12. BORD-MODAL (åbn bord, statusknapper, note)
+						     13. EVENT-BINDINGER (hvilke klik gør hvad)
+						     14. OPSTART + FIREBASE-LYTTERE
+						   ============================================================================ */
 
 			/* ----------------------------------------------------------------------------
-			   1. FIREBASE-OPSÆTNING
-			   Data ligger i Firebase Realtime Database under syv nøgler:
-			     tables/{hold}/{bordnr}   – én booking pr. bord pr. tidspunkt (fra import)
-			     kitchenOrders/           – én post pr. hovedret/dessert-bestilling
-			     settings/rooms           – lokalernes navne og farve
-			     settings/tableRooms      – hvilket lokale hvert bordnummer hører til
-			     settings/tableNumbers    – bordskilt-nummer, hvis personalet har sat et (ellers vises booking-nummeret)
-			     settings/drinkCategories – overkategorier for ekstra drikkevarer, admin kan tilføje/omdøbe/fjerne
-			     settings/drinkCatalog    – konkrete drikkevarer pr. overkategori, vedligeholdt af admin
-			   Uden gyldige nøgler kører appen videre i "demo"-tilstand uden synkronisering.
-			---------------------------------------------------------------------------- */
+						   1. FIREBASE-OPSÆTNING
+						   Data ligger i Firebase Realtime Database under syv nøgler:
+						     tables/{hold}/{bordnr}   – én booking pr. bord pr. tidspunkt (fra import)
+						     kitchenOrders/           – én post pr. hovedret/dessert-bestilling
+						     settings/rooms           – lokalernes navne og farve
+						     settings/tableRooms      – hvilket lokale hvert bordnummer hører til
+						     settings/tableNumbers    – bordskilt-nummer, hvis personalet har sat et (ellers vises booking-nummeret)
+						     settings/drinkCategories – overkategorier for ekstra drikkevarer, admin kan tilføje/omdøbe/fjerne
+						     settings/drinkCatalog    – konkrete drikkevarer pr. overkategori, vedligeholdt af admin
+						   Uden gyldige nøgler kører appen videre i "demo"-tilstand uden synkronisering.
+						---------------------------------------------------------------------------- */
 			import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 			import { getDatabase, onValue, push, ref, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
@@ -666,8 +666,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			};
 
 			/* ----------------------------------------------------------------------------
-			   2. KONSTANTER
-			---------------------------------------------------------------------------- */
+						   2. KONSTANTER
+						---------------------------------------------------------------------------- */
 
 			// Dagens tre hold. Nøglen i Firebase er tidspunktet uden kolon (fx "1730").
 			const TIME_SLOTS = ["11:45", "12:30", "13:30", "14:15", "17:30", "19:45"];
@@ -798,10 +798,10 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			};
 
 			/* ----------------------------------------------------------------------------
-			   3. APPENS TILSTAND
-			   Alt herunder ændrer sig under brug. Firebase-lytterne i afsnit 14
-			   overskriver tables/kitchenOrders/settingsRooms/tableRoomAssignments/tableDisplayNumbers.
-			---------------------------------------------------------------------------- */
+						   3. APPENS TILSTAND
+						   Alt herunder ændrer sig under brug. Firebase-lytterne i afsnit 14
+						   overskriver tables/kitchenOrders/settingsRooms/tableRoomAssignments/tableDisplayNumbers.
+						---------------------------------------------------------------------------- */
 			let tables = Object.fromEntries(TIME_SLOTS.map((slot) => [slotKey(slot), {}])); // { "1730": { bordnr: booking } }
 			let kitchenOrders = {}; // { ordreId: {tableId, slot, course, quantity, status...} }
 			let activeTableId = null; // bordet der er åbnet i modalen (null = lukket)
@@ -826,8 +826,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			const collapsedRooms = new Set(); // id'er på lokaler, der er klappet sammen
 
 			/* ----------------------------------------------------------------------------
-			   4. DOM-REFERENCER
-			---------------------------------------------------------------------------- */
+						   4. DOM-REFERENCER
+						---------------------------------------------------------------------------- */
 
 			// Topbjælke og visninger
 			const connectionDot = document.querySelector("#connectionDot");
@@ -889,8 +889,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			const importMessage = document.querySelector("#importMessage");
 
 			/* ----------------------------------------------------------------------------
-			   5. SMÅ HJÆLPEFUNKTIONER
-			---------------------------------------------------------------------------- */
+						   5. SMÅ HJÆLPEFUNKTIONER
+						---------------------------------------------------------------------------- */
 
 			// Gør brugerindtastet tekst ufarlig, før den sættes ind i HTML.
 			function escapeHtml(value) {
@@ -966,11 +966,11 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			/* ----------------------------------------------------------------------------
-			   RESERVATIONSLISTE ("Find en reservation")
-			   Samler alle bookinger på tværs af samtlige hold, så man kan finde en gæst
-			   med det samme, uanset hvilket faneblad man selv står på. Bruges typisk ved
-			   døren: slå navnet op, tryk "Ankommet", eller åbn bordet direkte med 🧾.
-			---------------------------------------------------------------------------- */
+						   RESERVATIONSLISTE ("Find en reservation")
+						   Samler alle bookinger på tværs af samtlige hold, så man kan finde en gæst
+						   med det samme, uanset hvilket faneblad man selv står på. Bruges typisk ved
+						   døren: slå navnet op, tryk "Ankommet", eller åbn bordet direkte med 🧾.
+						---------------------------------------------------------------------------- */
 
 			// Én række pr. booket bord, uanset hold – kun borde med et navn tæller som
 			// en reservation (et "empty"-bord uden navn er bare et ledigt bordnummer).
@@ -1027,15 +1027,15 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 								? `<button type="button" data-mark-arrived="${entry.slot}:${entry.tableId}" class="shrink-0 rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs font-bold text-white transition hover:bg-rose-700">Ankommet</button>`
 								: `<span class="shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${status.badge}">${status.label}</span>`;
 						return /*html*/ `<div class="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2">
-							<div class="min-w-0 flex-1">
-								<p class="truncate text-sm font-bold text-slate-800">${escapeHtml(entry.name)}</p>
-								<p class="truncate text-xs text-slate-500">${escapeHtml(entry.slotLabel)} · ${escapeHtml(entry.roomName || "Intet lokale")} · Bord ${escapeHtml(String(entry.displayNumber))} · ${toQuantity(entry.guests)} pax</p>
-							</div>
-							<div class="flex shrink-0 items-center gap-1.5">
-								${action}
-								<button type="button" data-open-table="${entry.slot}:${entry.tableId}" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-300 text-sm transition hover:bg-slate-50" aria-label="Åbn bord ${escapeHtml(String(entry.displayNumber))}" title="Åbn bord">🧾</button>
-							</div>
-						</div>`;
+										<div class="min-w-0 flex-1">
+											<p class="truncate text-sm font-bold text-slate-800">${escapeHtml(entry.name)}</p>
+											<p class="truncate text-xs text-slate-500">${escapeHtml(entry.slotLabel)} · ${escapeHtml(entry.roomName || "Intet lokale")} · Bord ${escapeHtml(String(entry.displayNumber))} · ${toQuantity(entry.guests)} pax</p>
+										</div>
+										<div class="flex shrink-0 items-center gap-1.5">
+											${action}
+											<button type="button" data-open-table="${entry.slot}:${entry.tableId}" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-300 text-sm transition hover:bg-slate-50" aria-label="Åbn bord ${escapeHtml(String(entry.displayNumber))}" title="Åbn bord">🧾</button>
+										</div>
+									</div>`;
 					})
 					.join("");
 
@@ -1177,8 +1177,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			/* ----------------------------------------------------------------------------
-			   6. HOLD + LOKALER
-			---------------------------------------------------------------------------- */
+						   6. HOLD + LOKALER
+						---------------------------------------------------------------------------- */
 
 			// Fanerne 13:30 / 17:30 / 19:45 i toppen. Styrer både bordoversigt og køkken.
 			// Det aktuelle hold (ud fra klokken) er markeret med en ring og "Nu". Et hold,
@@ -1282,8 +1282,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			/* ----------------------------------------------------------------------------
-			   7. OPSÆTNINGS-MODAL
-			---------------------------------------------------------------------------- */
+						   7. OPSÆTNINGS-MODAL
+						---------------------------------------------------------------------------- */
 
 			// Én række pr. lokale: navn, antal borde, farve og en slet-knap.
 			function renderSettingsRows() {
@@ -1446,8 +1446,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			/* ----------------------------------------------------------------------------
-			   8. IMPORT-MODAL
-			---------------------------------------------------------------------------- */
+						   8. IMPORT-MODAL
+						---------------------------------------------------------------------------- */
 
 			// Understøtter både en flad liste med et "time"-felt pr. reservation og et
 			// objekt grupperet pr. tidspunkt: { "17:30": [...] }.
@@ -1512,62 +1512,100 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			// rette eller tilføje enkelte reservationer uden at nulstille resten af dagen.
 			async function saveImport() {
 				importMessage.textContent = "";
-				let parsed;
+
+				// 1. Læs og parse JSON-input
+				const rawJson = importJson.value.trim();
+				if (!rawJson) {
+					importMessage.textContent = "Indsæt venligst JSON-data.";
+					return;
+				}
+
+				let parsedJson;
 				try {
-					parsed = JSON.parse(importJson.value);
+					parsedJson = JSON.parse(rawJson);
 				} catch (error) {
 					importMessage.textContent = "Ugyldig JSON – tjek formatet.";
 					return;
 				}
 
-				const bookingsBySlot = normalizeImportPayload(parsed);
-				const nextTables = { ...tables };
-				const changes = {};
-				const touchedSlots = new Set();
-				let totalBookings = 0;
-
-				TIME_SLOTS.forEach((slot) => {
-					const key = slotKey(slot);
-					const bookings = bookingsBySlot[key] || [];
-					if (!bookings.length) return; // dette tidspunkt er ikke med i den indsatte JSON – lad det være urørt
-
-					touchedSlots.add(key);
-					const slotTables = { ...(tables[key] || {}) };
-					bookings.forEach((booking) => {
-						const tableNumber = String(booking.table ?? booking.bord ?? booking.tableNumber ?? "").trim();
-						if (!tableNumber) return;
-						// bookingToTable bevarer status/seatedAt/readySince/completedAt, hvis bordet
-						// allerede findes – kun navn/pax/note/menuvalg opdateres fra bookingen.
-						slotTables[tableNumber] = bookingToTable(booking, slotTables[tableNumber]);
-						changes[`tables/${key}/${tableNumber}`] = slotTables[tableNumber];
-						totalBookings += 1;
-					});
-					nextTables[key] = slotTables;
-				});
-
-				if (!totalBookings) {
-					importMessage.textContent = "Fandt ingen reservationer i JSON-teksten.";
-					return;
-				}
-
-				tables = nextTables;
-				if (!Object.keys(tables[selectedSlotKey] || {}).length) {
-					const firstTouched = TIME_SLOTS.map(slotKey).find((key) => touchedSlots.has(key) && Object.keys(tables[key]).length > 0);
-					if (firstTouched) selectedSlotKey = firstTouched;
-				}
-
 				try {
-					if (window.database) await update(ref(window.database), changes);
-					renderTimeSlotTabs();
-					renderTables();
-					renderKitchen();
+					// 2. Normaliser data
+					const normalized = normalizeImportPayload(parsedJson);
+
+					const updates = {};
+					const nextTables = { ...tables };
+					const touchedSlots = new Set();
+					let totalBookings = 0;
+
+					// 3. Gennemgå reservationer pr. hold/tidspunkt
+					Object.entries(normalized).forEach(([hold, reservations]) => {
+						if (!reservations || !reservations.length) return;
+
+						touchedSlots.add(hold);
+						const slotTables = { ...(nextTables[hold] || {}) };
+
+						reservations.forEach((reservation) => {
+							// Hent og rens bordnummer (f.eks. "101-102" -> cleanTableKey = "101102")
+							let tableKey = String(reservation.table || reservation.bord || reservation.tableNumber || "").trim();
+							let cleanTableKey = tableKey.replace(/[^0-9]/g, "");
+
+							if (!cleanTableKey) return; // Spring over hvis der ikke er et gyldigt bordnummer
+
+							// Hent eksisterende bord fra lokal tilstand hvis det findes
+							const existingTable = slotTables[cleanTableKey] || (tables[hold] && tables[hold][cleanTableKey]) || null;
+
+							// Opbyg borddata (bevarer den oprindelige 'tableKey' som visningsnavn)
+							const tableData = bookingToTable(
+								{
+									...reservation,
+									table: tableKey,
+								},
+								existingTable,
+							);
+
+							// Opdater lokal kopi og saml Firebase-opdateringer
+							slotTables[cleanTableKey] = tableData;
+							updates[`tables/${hold}/${cleanTableKey}`] = tableData;
+							totalBookings++;
+						});
+
+						nextTables[hold] = slotTables;
+					});
+
+					// Tjek om der rent faktisk var nogle reservationer
+					if (totalBookings === 0) {
+						importMessage.textContent = "Fandt ingen gyldige reservationer i JSON-teksten.";
+						return;
+					}
+
+					// 4. Opdater den globale lokal-state (tables)
+					tables = nextTables;
+
+					// Vælg det første berørte tidspunkt hvis det nuværende valgte er tomt
+					if (!Object.keys(tables[selectedSlotKey] || {}).length) {
+						const firstTouched = Array.from(touchedSlots).find((key) => Object.keys(tables[key] || {}).length > 0);
+						if (firstTouched) selectedSlotKey = firstTouched;
+					}
+
+					// 5. Gem alle opdateringer i Firebase på én gang
+					if (window.database) {
+						await update(ref(window.database), updates);
+					}
+
+					// 6. Gennegntegn brugerfladen med de nye data
+					if (typeof renderTimeSlotTabs === "function") renderTimeSlotTabs();
+					if (typeof renderTables === "function") renderTables();
+					if (typeof renderKitchen === "function") renderKitchen();
+
+					// 7. Vis succes-besked og ryd op
 					const slotLabel = touchedSlots.size === 1 ? "1 tidspunkt" : `${touchedSlots.size} tidspunkter`;
 					importMessage.textContent = `${totalBookings} reservationer importeret (${slotLabel})`;
 					importJson.value = "";
+
 					setTimeout(closeImportModal, 600);
 				} catch (error) {
-					console.error(error);
-					importMessage.textContent = "Kunne ikke gemme importen i Firebase.";
+					console.error("Fejl ved import/gemning:", error);
+					importMessage.textContent = "Der opstod en fejl under gemning i Firebase.";
 				}
 			}
 
@@ -1597,8 +1635,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			/* ----------------------------------------------------------------------------
-			   9. BORDOVERSIGT
-			---------------------------------------------------------------------------- */
+						   9. BORDOVERSIGT
+						---------------------------------------------------------------------------- */
 
 			// Tegner ét bordkort pr. bord, grupperet i lokaler, for det valgte hold.
 			// Kaldes hver gang data ændrer sig – hele oversigten bygges op forfra.
@@ -1657,11 +1695,11 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				const cards = activeIds.map((id) => renderTableCard(id, slotTables[id])).join("");
 
 				return `<section id="room-${room.id}" class="room-section" aria-labelledby="room-heading-${room.id}">
-					<button data-room-toggle="${room.id}" aria-expanded="${!isCollapsed}" class="mb-4 flex w-full items-center gap-3 text-left">
-						<span class="h-8 w-1.5 rounded-full ${room.line}"></span><span class="flex-1"><span id="room-heading-${room.id}" class="font-display text-3xl font-bold ${room.accent}">${escapeHtml(room.name)}</span><span class="ml-3 text-sm font-bold text-slate-400">${activeIds.length} borde</span></span><span class="text-xl text-slate-400">${isCollapsed ? "▸" : "▾"}</span>
-					</button>
-					<div class="room-table-grid ${isCollapsed ? "hidden" : "grid"} gap-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">${cards}</div>
-				</section>`;
+								<button data-room-toggle="${room.id}" aria-expanded="${!isCollapsed}" class="mb-4 flex w-full items-center gap-3 text-left">
+									<span class="h-8 w-1.5 rounded-full ${room.line}"></span><span class="flex-1"><span id="room-heading-${room.id}" class="font-display text-3xl font-bold ${room.accent}">${escapeHtml(room.name)}</span><span class="ml-3 text-sm font-bold text-slate-400">${activeIds.length} borde</span></span><span class="text-xl text-slate-400">${isCollapsed ? "▸" : "▾"}</span>
+								</button>
+								<div class="room-table-grid ${isCollapsed ? "hidden" : "grid"} gap-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">${cards}</div>
+							</section>`;
 			}
 
 			// HTML for ét bordkort: nummer, navn, pax, tilvalgs-ikoner, status og note.
@@ -1727,10 +1765,10 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					: `<span class="h-2.5 w-2.5 shrink-0 rounded-full ${status.dot}" title="${status.label}"></span>`;
 
 				return `<button class="table-card rounded-xl border-2 px-3 py-2 text-left shadow-sm ${status.card}" data-table-id="${id}">
-					<div class="flex items-center justify-between"><span class="font-display flex flex-wrap items-center gap-1.5 text-base font-bold text-slate-900 sm:text-lg">Bord ${escapeHtml(getDisplayNumber(id))} <span class="font-sans text-xs font-bold text-slate-500 sm:text-sm">· ${toQuantity(table.guests)} pax</span></span><div class="flex items-center gap-2"><span class="flex items-center gap-1 text-xs" aria-hidden="true">${extraIcons.join("")}</span>${dot}</div></div>
-					${seatedBadge ? `<div>${seatedBadge}</div>` : ""}
-					${details}
-				</button>`;
+								<div class="flex items-center justify-between"><span class="font-display flex flex-wrap items-center gap-1.5 text-base font-bold text-slate-900 sm:text-lg">Bord ${escapeHtml(getDisplayNumber(id))} <span class="font-sans text-xs font-bold text-slate-500 sm:text-sm">· ${toQuantity(table.guests)} pax</span></span><div class="flex items-center gap-2"><span class="flex items-center gap-1 text-xs" aria-hidden="true">${extraIcons.join("")}</span>${dot}</div></div>
+								${seatedBadge ? `<div>${seatedBadge}</div>` : ""}
+								${details}
+							</button>`;
 			}
 
 			// Liste over borde, hvor "Gør bordet ledigt" er blevet trykket – de forsvinder
@@ -1743,22 +1781,22 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 
 				const cards = finished.map(([id, table]) => renderFinishedCard(id, table)).join("");
 				return `<section class="mt-10 border-t border-slate-200 pt-6">
-					<h2 class="mb-3 font-display text-2xl font-bold text-slate-400">Afsluttede borde (${finished.length})</h2>
-					<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">${cards}</div>
-				</section>`;
+								<h2 class="mb-3 font-display text-2xl font-bold text-slate-400">Afsluttede borde (${finished.length})</h2>
+								<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">${cards}</div>
+							</section>`;
 			}
 
 			function renderFinishedCard(id, table) {
 				const time = new Date(table.completedAt).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" });
 				return `<div class="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-					<div class="min-w-0"><p class="truncate text-sm font-bold text-slate-600">Bord ${escapeHtml(getDisplayNumber(id))}${table.name ? ` · ${escapeHtml(table.name)}` : ""}</p><p class="text-xs text-slate-400">${toQuantity(table.guests)} pax · afsluttet ${time}</p></div>
-					<button data-reopen-table="${id}" class="shrink-0 rounded-lg border border-slate-300 px-2 py-1 text-xs font-bold text-slate-600 hover:bg-slate-50">Genåbn</button>
-				</div>`;
+								<div class="min-w-0"><p class="truncate text-sm font-bold text-slate-600">Bord ${escapeHtml(getDisplayNumber(id))}${table.name ? ` · ${escapeHtml(table.name)}` : ""}</p><p class="text-xs text-slate-400">${toQuantity(table.guests)} pax · afsluttet ${time}</p></div>
+								<button data-reopen-table="${id}" class="shrink-0 rounded-lg border border-slate-300 px-2 py-1 text-xs font-bold text-slate-600 hover:bg-slate-50">Genåbn</button>
+							</div>`;
 			}
 
 			/* ----------------------------------------------------------------------------
-			   10. KØKKENKØ
-			---------------------------------------------------------------------------- */
+						   10. KØKKENKØ
+						---------------------------------------------------------------------------- */
 
 			// Skifter mellem bordoversigt og køkkenvisning.
 			// Visningen skrives i adressen (#kokken / #borde). Så kan køkkenets skærm
@@ -1875,10 +1913,10 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					.join("");
 
 				return `<article class="min-h-[260px] rounded-2xl border-slate-200 bg-white p-6 shadow-sm">
-					<div class="flex items-center justify-between gap-3 border-slate-200"><h3 class="font-display text-3xl font-bold text-slate-900">Bord ${escapeHtml(getDisplayNumber(group.tableId))}</h3>${group.room ? `<span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">${escapeHtml(group.room)}</span>` : ""}</div>
-					<div class="mt-5 space-y-4">${courseBoxes}</div>
-					${group.note ? `<p class="mt-4 border-t border-slate-200 pt-3 text-sm font-semibold text-slate-600">${escapeHtml(group.note)}</p>` : ""}
-				</article>`;
+								<div class="flex items-center justify-between gap-3 border-slate-200"><h3 class="font-display text-3xl font-bold text-slate-900">Bord ${escapeHtml(getDisplayNumber(group.tableId))}</h3>${group.room ? `<span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">${escapeHtml(group.room)}</span>` : ""}</div>
+								<div class="mt-5 space-y-4">${courseBoxes}</div>
+								${group.note ? `<p class="mt-4 border-t border-slate-200 pt-3 text-sm font-semibold text-slate-600">${escapeHtml(group.note)}</p>` : ""}
+							</article>`;
 			}
 
 			// HTML for én ret i køkkenkøen: navn, antal pax og "Tryk ud"-knappen.
@@ -1955,8 +1993,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			/* ----------------------------------------------------------------------------
-			   11. KØKKENORDRER
-			---------------------------------------------------------------------------- */
+						   11. KØKKENORDRER
+						---------------------------------------------------------------------------- */
 
 			// Opretter én bestilling i køkkenkøen for hovedret eller dessert (forretten
 			// laves samlet for holdet og opretter aldrig en ordre – se afsnit 2).
@@ -1997,8 +2035,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			/* ----------------------------------------------------------------------------
-			   12. BORD-MODAL
-			---------------------------------------------------------------------------- */
+						   12. BORD-MODAL
+						---------------------------------------------------------------------------- */
 
 			// Viser bookingens data (fra import) som en skrivebeskyttet oversigt.
 			function renderBookingInfo(table) {
@@ -2210,15 +2248,15 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 							.join("");
 
 						return /*html*/ `<div class="rounded-lg ${isExpanded ? "bg-slate-50" : ""}">
-							<button type="button" data-category-toggle="${category.id}" class="flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left">
-								<span class="text-xs font-bold text-slate-700">${escapeHtml(category.name)}</span>
-								<span class="flex shrink-0 items-center gap-1.5">
-									${categoryTotal > 0 ? `<span class="rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] font-bold text-white">${categoryTotal}</span>` : ""}
-									<span class="text-xs text-slate-400">${isExpanded ? "▾" : "▸"}</span>
-								</span>
-							</button>
-							${isExpanded ? `<div class="grid grid-cols-2 gap-1 px-2 pb-2">${rows}</div>` : ""}
-						</div>`;
+										<button type="button" data-category-toggle="${category.id}" class="flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left">
+											<span class="text-xs font-bold text-slate-700">${escapeHtml(category.name)}</span>
+											<span class="flex shrink-0 items-center gap-1.5">
+												${categoryTotal > 0 ? `<span class="rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] font-bold text-white">${categoryTotal}</span>` : ""}
+												<span class="text-xs text-slate-400">${isExpanded ? "▾" : "▸"}</span>
+											</span>
+										</button>
+										${isExpanded ? `<div class="grid grid-cols-2 gap-1 px-2 pb-2">${rows}</div>` : ""}
+									</div>`;
 					})
 					.join("");
 
@@ -2299,37 +2337,37 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 											item,
 											itemIndex,
 										) => /*html*/ `<div class="flex items-center justify-between gap-1 rounded-md bg-slate-50 px-1.5 py-1"><div class="flex min-w-0 items-center gap-1"><div class="flex shrink-0 flex-col gap-0.5">
-												<button type="button" data-move-item="${category.id}:${item.id}:up" ${itemIndex === 0 ? "disabled" : ""} class="flex h-3.5 w-4 items-center justify-center rounded-sm bg-slate-200 text-[8px] leading-none text-slate-600 hover:bg-slate-300 disabled:opacity-25 disabled:pointer-events-none" aria-label="Flyt ${escapeHtml(item.name)} op">▲</button>
-												<button type="button" data-move-item="${category.id}:${item.id}:down" ${itemIndex === items.length - 1 ? "disabled" : ""} class="flex h-3.5 w-4 items-center justify-center rounded-sm bg-slate-200 text-[8px] leading-none text-slate-600 hover:bg-slate-300 disabled:opacity-25 disabled:pointer-events-none" aria-label="Flyt ${escapeHtml(item.name)} ned">▼</button>
-											</div><span class="min-w-0 truncate text-xs text-slate-700">${escapeHtml(item.name)}</span></div><button type="button" data-remove-catalog-item="${category.id}:${item.id}" class="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-bold text-rose-600 hover:bg-rose-50">Fjern</button></div>`,
+															<button type="button" data-move-item="${category.id}:${item.id}:up" ${itemIndex === 0 ? "disabled" : ""} class="flex h-3.5 w-4 items-center justify-center rounded-sm bg-slate-200 text-[8px] leading-none text-slate-600 hover:bg-slate-300 disabled:opacity-25 disabled:pointer-events-none" aria-label="Flyt ${escapeHtml(item.name)} op">▲</button>
+															<button type="button" data-move-item="${category.id}:${item.id}:down" ${itemIndex === items.length - 1 ? "disabled" : ""} class="flex h-3.5 w-4 items-center justify-center rounded-sm bg-slate-200 text-[8px] leading-none text-slate-600 hover:bg-slate-300 disabled:opacity-25 disabled:pointer-events-none" aria-label="Flyt ${escapeHtml(item.name)} ned">▼</button>
+														</div><span class="min-w-0 truncate text-xs text-slate-700">${escapeHtml(item.name)}</span></div><button type="button" data-remove-catalog-item="${category.id}:${item.id}" class="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-bold text-rose-600 hover:bg-rose-50">Fjern</button></div>`,
 									)
 									.join("")
 							: /*html*/ `<p class="text-[11px] text-slate-400">Ingen varer – kategorien er selv varen, og tjenerne får en +/- direkte på den.</p>`;
 						return /*html*/ `<div class="rounded-lg border border-slate-200 p-2.5" data-category-section="${category.id}">
-							<div class="mb-1.5 flex items-center gap-1.5">
-								<div class="flex shrink-0 flex-col gap-0.5">
-									<button type="button" data-move-category="${category.id}:up" ${categoryIndex === 0 ? "disabled" : ""} class="flex h-4 w-5 items-center justify-center rounded bg-slate-100 text-[9px] leading-none text-slate-600 hover:bg-slate-200 disabled:opacity-25 disabled:pointer-events-none" aria-label="Flyt ${escapeHtml(category.name)} op">▲</button>
-									<button type="button" data-move-category="${category.id}:down" ${categoryIndex === drinkCategories.length - 1 ? "disabled" : ""} class="flex h-4 w-5 items-center justify-center rounded bg-slate-100 text-[9px] leading-none text-slate-600 hover:bg-slate-200 disabled:opacity-25 disabled:pointer-events-none" aria-label="Flyt ${escapeHtml(category.name)} ned">▼</button>
-								</div>
-								<input data-category-name="${category.id}" type="text" value="${escapeHtml(category.name)}" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1 text-sm font-bold text-slate-800 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" aria-label="Kategorinavn" />
-								<button type="button" data-remove-category="${category.id}" class="shrink-0 rounded-lg px-2 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50">Fjern kategori</button>
-							</div>
-							<div class="grid grid-cols-2 gap-1">${itemRows}</div>
-							<div class="mt-1.5 flex gap-1.5">
-								<input data-catalog-input="${category.id}" type="text" placeholder="Fx Coca-Cola 0,33L" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1 text-xs outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" />
-								<button type="button" data-catalog-add="${category.id}" class="shrink-0 rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-bold text-white hover:bg-slate-700">Tilføj vare</button>
-							</div>
-						</div>`;
+										<div class="mb-1.5 flex items-center gap-1.5">
+											<div class="flex shrink-0 flex-col gap-0.5">
+												<button type="button" data-move-category="${category.id}:up" ${categoryIndex === 0 ? "disabled" : ""} class="flex h-4 w-5 items-center justify-center rounded bg-slate-100 text-[9px] leading-none text-slate-600 hover:bg-slate-200 disabled:opacity-25 disabled:pointer-events-none" aria-label="Flyt ${escapeHtml(category.name)} op">▲</button>
+												<button type="button" data-move-category="${category.id}:down" ${categoryIndex === drinkCategories.length - 1 ? "disabled" : ""} class="flex h-4 w-5 items-center justify-center rounded bg-slate-100 text-[9px] leading-none text-slate-600 hover:bg-slate-200 disabled:opacity-25 disabled:pointer-events-none" aria-label="Flyt ${escapeHtml(category.name)} ned">▼</button>
+											</div>
+											<input data-category-name="${category.id}" type="text" value="${escapeHtml(category.name)}" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1 text-sm font-bold text-slate-800 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" aria-label="Kategorinavn" />
+											<button type="button" data-remove-category="${category.id}" class="shrink-0 rounded-lg px-2 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50">Fjern kategori</button>
+										</div>
+										<div class="grid grid-cols-2 gap-1">${itemRows}</div>
+										<div class="mt-1.5 flex gap-1.5">
+											<input data-catalog-input="${category.id}" type="text" placeholder="Fx Coca-Cola 0,33L" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1 text-xs outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" />
+											<button type="button" data-catalog-add="${category.id}" class="shrink-0 rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-bold text-white hover:bg-slate-700">Tilføj vare</button>
+										</div>
+									</div>`;
 					})
 					.join("");
 
 				drinkCatalogSections.innerHTML = /*html*/ `
-					<div class="flex gap-1.5">
-						<input id="newCategoryInput" type="text" placeholder="Ny kategori, fx Cocktails" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" />
-						<button id="addCategoryButton" type="button" class="shrink-0 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-bold text-white hover:bg-slate-700">Tilføj kategori</button>
-					</div>
-					${categoryRows}
-				`;
+								<div class="flex gap-1.5">
+									<input id="newCategoryInput" type="text" placeholder="Ny kategori, fx Cocktails" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" />
+									<button id="addCategoryButton" type="button" class="shrink-0 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-bold text-white hover:bg-slate-700">Tilføj kategori</button>
+								</div>
+								${categoryRows}
+							`;
 
 				const newCategoryInput = document.querySelector("#newCategoryInput");
 				const submitNewCategory = () => {
@@ -2694,8 +2732,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			/* ----------------------------------------------------------------------------
-			   13. EVENT-BINDINGER
-			---------------------------------------------------------------------------- */
+						   13. EVENT-BINDINGER
+						---------------------------------------------------------------------------- */
 
 			// Statusknapperne i bord-modalen.
 			document.querySelectorAll(".status-button").forEach((button) =>
@@ -2810,8 +2848,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			kitchenToggle.addEventListener("click", () => setView(activeView === "kitchen" ? "tables" : "kitchen"));
 
 			/* ----------------------------------------------------------------------------
-			   14. OPSTART + FIREBASE-LYTTERE
-			---------------------------------------------------------------------------- */
+						   14. OPSTART + FIREBASE-LYTTERE
+						---------------------------------------------------------------------------- */
 
 			// Første tegning med standarddata, så skærmen er brugbar med det samme.
 			renderTimeSlotTabs();
