@@ -183,6 +183,17 @@
 				<div id="roomHotbarButtons" class="flex flex-wrap justify-center gap-2"></div>
 			</nav>
 
+			<!-- Fast, altid tilgængelig genvej til at finde en reservation på tjener-siden
+			     (skjules i køkkenvisningen, ligesom roomHotbar ovenfor). -->
+			<button
+				id="reservationsToggle"
+				type="button"
+				class="fixed bottom-24 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-2xl text-white shadow-lg transition hover:bg-slate-700 sm:bottom-28 sm:right-6"
+				aria-label="Find en reservation"
+				title="Find en reservation">
+				📅
+			</button>
+
 			<!-- Visning 1: bordoversigten (bygges i JS af renderTables) -->
 			<main id="tablesGrid" class="space-y-10"></main>
 
@@ -494,6 +505,38 @@
 						under Sodavand. Alle ændringer gemmes med det samme.
 					</p>
 					<div id="drinkCatalogSections" class="space-y-4"></div>
+				</div>
+			</div>
+		</div>
+
+		<!-- ===== Reservations-modal: find en gæst hurtigt, uanset hvilket hold/lokale ===== -->
+		<div
+			id="reservationsModal"
+			class="modal-backdrop fixed inset-0 z-50 hidden items-end justify-center overflow-hidden p-3 sm:items-center sm:p-6"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="reservationsTitle">
+			<div
+				class="modal-panel my-auto max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
+				<div class="flex items-center justify-between border-b border-slate-200 p-4 sm:p-5">
+					<h2 id="reservationsTitle" class="font-display text-xl font-bold text-slate-900">Find en reservation</h2>
+					<button
+						id="closeReservations"
+						class="rounded-full p-2 text-2xl leading-none text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+						aria-label="Luk">
+						&times;
+					</button>
+				</div>
+				<div class="space-y-3 p-4 sm:p-5">
+					<input
+						id="reservationsSearch"
+						type="text"
+						placeholder="Søg efter navn..."
+						class="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm outline-none transition focus:border-rose-500 focus:ring-4 focus:ring-rose-100" />
+					<p id="reservationsMessage" class="min-h-4 text-xs font-bold text-rose-700" role="status"></p>
+					<!-- Alle hold på tværs, alfabetisk – så man kan finde en gæst uanset
+					     hvilket faneblad man selv står på lige nu. -->
+					<div id="reservationsList" class="max-h-[60vh] space-y-1.5 overflow-y-auto"></div>
 				</div>
 			</div>
 		</div>
@@ -825,6 +868,11 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			const drinksPickerBody = document.querySelector("#drinksPickerBody");
 			const drinkCatalogModal = document.querySelector("#drinkCatalogModal");
 			const drinkCatalogSections = document.querySelector("#drinkCatalogSections");
+			const reservationsToggle = document.querySelector("#reservationsToggle");
+			const reservationsModal = document.querySelector("#reservationsModal");
+			const reservationsSearch = document.querySelector("#reservationsSearch");
+			const reservationsMessage = document.querySelector("#reservationsMessage");
+			const reservationsList = document.querySelector("#reservationsList");
 			const tableNote = document.querySelector("#tableNote");
 			const saveNoteButton = document.querySelector("#saveNote");
 			const saveMessage = document.querySelector("#saveMessage");
@@ -915,6 +963,116 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			function getDisplayNumber(tableId) {
 				const custom = tableDisplayNumbers[String(tableId)];
 				return custom !== undefined && custom !== "" ? custom : tableId;
+			}
+
+			/* ----------------------------------------------------------------------------
+			   RESERVATIONSLISTE ("Find en reservation")
+			   Samler alle bookinger på tværs af samtlige hold, så man kan finde en gæst
+			   med det samme, uanset hvilket faneblad man selv står på. Bruges typisk ved
+			   døren: slå navnet op, tryk "Ankommet", eller åbn bordet direkte med 🧾.
+			---------------------------------------------------------------------------- */
+
+			// Én række pr. booket bord, uanset hold – kun borde med et navn tæller som
+			// en reservation (et "empty"-bord uden navn er bare et ledigt bordnummer).
+			function getAllReservations() {
+				const entries = [];
+				TIME_SLOTS.forEach((slot) => {
+					const key = slotKey(slot);
+					Object.entries(tables[key] || {}).forEach(([tableId, table]) => {
+						if (!table || !table.name) return;
+						entries.push({
+							slot: key,
+							slotLabel: slot,
+							tableId,
+							displayNumber: getDisplayNumber(tableId),
+							roomName: getRoomName(tableId),
+							name: table.name,
+							guests: table.guests,
+							status: table.status || "empty",
+						});
+					});
+				});
+				entries.sort((a, b) => a.name.localeCompare(b.name, "da"));
+				return entries;
+			}
+
+			function openReservations() {
+				reservationsSearch.value = "";
+				reservationsMessage.textContent = "";
+				renderReservationsList();
+				reservationsModal.classList.remove("hidden");
+				reservationsModal.classList.add("flex");
+			}
+			function closeReservations() {
+				reservationsModal.classList.add("hidden");
+				reservationsModal.classList.remove("flex");
+			}
+
+			// Tegner listen, filtreret på søgefeltet. Et "Ankommet"-bord får i stedet et
+			// statusmærke, så man kan se, at det allerede er tjekket ind.
+			function renderReservationsList() {
+				const query = reservationsSearch.value.trim().toLowerCase();
+				const entries = getAllReservations().filter((entry) => !query || entry.name.toLowerCase().includes(query));
+
+				if (!entries.length) {
+					reservationsList.innerHTML = `<p class="py-6 text-center text-sm text-slate-400">${query ? "Ingen reservationer matcher søgningen." : "Ingen reservationer importeret endnu."}</p>`;
+					return;
+				}
+
+				reservationsList.innerHTML = entries
+					.map((entry) => {
+						const status = statuses[entry.status] || statuses.empty;
+						const action =
+							entry.status === "empty"
+								? `<button type="button" data-mark-arrived="${entry.slot}:${entry.tableId}" class="shrink-0 rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs font-bold text-white transition hover:bg-rose-700">Ankommet</button>`
+								: `<span class="shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${status.badge}">${status.label}</span>`;
+						return /*html*/ `<div class="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2">
+							<div class="min-w-0 flex-1">
+								<p class="truncate text-sm font-bold text-slate-800">${escapeHtml(entry.name)}</p>
+								<p class="truncate text-xs text-slate-500">${escapeHtml(entry.slotLabel)} · ${escapeHtml(entry.roomName || "Intet lokale")} · Bord ${escapeHtml(String(entry.displayNumber))} · ${toQuantity(entry.guests)} pax</p>
+							</div>
+							<div class="flex shrink-0 items-center gap-1.5">
+								${action}
+								<button type="button" data-open-table="${entry.slot}:${entry.tableId}" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-300 text-sm transition hover:bg-slate-50" aria-label="Åbn bord ${escapeHtml(String(entry.displayNumber))}" title="Åbn bord">🧾</button>
+							</div>
+						</div>`;
+					})
+					.join("");
+
+				reservationsList
+					.querySelectorAll("[data-mark-arrived]")
+					.forEach((button) => button.addEventListener("click", () => markReservationArrived(button.dataset.markArrived)));
+				reservationsList
+					.querySelectorAll("[data-open-table]")
+					.forEach((button) => button.addEventListener("click", () => openReservationTable(button.dataset.openTable)));
+			}
+
+			// Markerer bordet som "Ankommet" direkte fra listen, uanset hvilket hold det
+			// hører til. SPÆRRING: samme regel som ellers – 0 gæster kan ikke gå videre.
+			async function markReservationArrived(key) {
+				const [slot, tableId] = key.split(":");
+				const table = (tables[slot] && tables[slot][tableId]) || emptyTable;
+				if (toQuantity(table.guests) < 1) {
+					reservationsMessage.textContent = "Bordet har 0 gæster registreret – ret antallet i bookingen først.";
+					return;
+				}
+				reservationsMessage.textContent = "";
+				await applyTableStatus(tableId, "arrived", { guests: table.guests, note: table.note, extras: table.extras }, slot);
+				renderReservationsList();
+			}
+
+			// Åbner bordets modal direkte fra reservationslisten – skifter først til det
+			// rigtige hold (og til bordoversigten, hvis man stod i køkkenet).
+			function openReservationTable(key) {
+				const [slot, tableId] = key.split(":");
+				closeReservations();
+				if (activeView === "kitchen") setView("tables");
+				if (slot !== selectedSlotKey) {
+					selectedSlotKey = slot;
+					renderTimeSlotTabs();
+					renderTables();
+				}
+				openModal(tableId);
 			}
 
 			// Sorterer bordnumre efter bordskilt-nummeret (laveste først). Numeriske
@@ -1614,6 +1772,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				kitchenView.classList.toggle("hidden", !isKitchen);
 				statusLegend.classList.toggle("hidden", isKitchen);
 				roomHotbar.classList.toggle("hidden", isKitchen);
+				reservationsToggle.classList.toggle("hidden", isKitchen);
 				kitchenSummary.classList.remove("hidden");
 				kitchenToggle.textContent = isKitchen ? "Bordoversigt" : "Åbn køkken";
 				if (isKitchen) renderKitchen();
@@ -2449,8 +2608,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			// bestilling i køkkenet, hvis statussen kræver det (se courseByStatus).
 			// Bruges både af statusknapperne (saveTable) og af genvejen, hvor man
 			// klikker direkte på den blinkende prik (markCourseServed).
-			async function applyTableStatus(tableId, status, { guests, note, extras }) {
-				const slot = selectedSlotKey;
+			async function applyTableStatus(tableId, status, { guests, note, extras }, slotOverride) {
+				const slot = slotOverride || selectedSlotKey;
 				const previousTable = (tables[slot] && tables[slot][tableId]) || emptyTable;
 				const values = {
 					...previousTable,
@@ -2575,7 +2734,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			});
 			document.addEventListener("keydown", (event) => {
 				if (event.key !== "Escape") return;
-				if (!drinksPickerModal.classList.contains("hidden")) closeDrinksPicker();
+				if (!reservationsModal.classList.contains("hidden")) closeReservations();
+				else if (!drinksPickerModal.classList.contains("hidden")) closeDrinksPicker();
 				else if (!drinkCatalogModal.classList.contains("hidden")) closeDrinkCatalogEditor();
 				else closeModal();
 			});
@@ -2619,6 +2779,12 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			drinkCatalogModal.addEventListener("click", (event) => {
 				if (event.target === drinkCatalogModal) closeDrinkCatalogEditor();
 			});
+			reservationsToggle.addEventListener("click", openReservations);
+			document.querySelector("#closeReservations").addEventListener("click", closeReservations);
+			reservationsModal.addEventListener("click", (event) => {
+				if (event.target === reservationsModal) closeReservations();
+			});
+			reservationsSearch.addEventListener("input", renderReservationsList);
 			document.querySelector("#addRoom").addEventListener("click", () => {
 				settingsRooms.push({
 					id: `room-${Date.now()}`,
