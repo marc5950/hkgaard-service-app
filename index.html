@@ -429,6 +429,7 @@
 							(fx 1, 2, 3...) – lad feltet stå tomt for at bruge booking-nummeret. Bordkortene sorteres efter dette nummer, laveste først. Gælder alle
 							dage.
 						</p>
+						<div id="tablePaxSummary" class="mb-2 flex flex-wrap gap-1"></div>
 						<div id="tableRoomRows" class="grid max-h-64 grid-cols-1 gap-1 overflow-y-auto pr-1"></div>
 					</div>
 					<div class="border-t border-slate-200 pt-3">
@@ -896,6 +897,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			const settingsModal = document.querySelector("#settingsModal");
 			const settingsRows = document.querySelector("#roomSettingsRows");
 			const tableRoomRows = document.querySelector("#tableRoomRows");
+			const tablePaxSummary = document.querySelector("#tablePaxSummary");
 			const settingsMessage = document.querySelector("#settingsMessage");
 
 			// Import-modal
@@ -1408,12 +1410,29 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			// Én række pr. bordnummer på tværs af alle hold, med et bordskilt-nummer og et lokale-valg.
+			// Øverst vises en lille optælling af, hvor mange borde der har 2 pax, 3 pax osv.
 			function renderTableRoomRows() {
 				const numbers = getAllKnownTableNumbers();
 				if (!numbers.length) {
+					tablePaxSummary.innerHTML = "";
 					tableRoomRows.innerHTML = `<p class="text-sm text-slate-400">Ingen borde importeret endnu.</p>`;
 					return;
 				}
+
+				// Tæl borde pr. pax-størrelse (bruger største pax på tværs af dagens hold).
+				const paxCounts = {};
+				numbers.forEach((number) => {
+					const pax = getTablePaxHint(number);
+					if (pax) paxCounts[pax] = (paxCounts[pax] || 0) + 1;
+				});
+				tablePaxSummary.innerHTML = Object.keys(paxCounts)
+					.map(Number)
+					.sort((a, b) => a - b)
+					.map(
+						(pax) => `<span class="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-bold text-slate-700">${pax} pax: ${paxCounts[pax]}</span>`,
+					)
+					.join("");
+
 				tableRoomRows.innerHTML = numbers
 					.map((number) => {
 						const pax = getTablePaxHint(number);
