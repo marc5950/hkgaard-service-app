@@ -1418,27 +1418,70 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						   7. OPSÆTNINGS-MODAL
 						---------------------------------------------------------------------------- */
 
+			// Én række pr. lokale: op/ned-pile, navn, farve og en slet-knap. Rækkefølgen her styrer både rækkefølgen i bordoversigten (grupperet pr.lokale) og rækkefølgen i lokale-dropdowns under "Bordskilte og lokaler".
 			function renderSettingsRows() {
 				settingsRows.innerHTML = settingsRooms
 					.map(
 						(room, index) =>
-							`<div class="grid grid-cols-[minmax(0,1fr)_88px_28px] items-center gap-1.5"><input data-room-name="${index}" value="${escapeHtml(room.name)}" class="min-w-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm font-semibold outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" aria-label="Lokalnavn" /><select data-room-color="${index}" class="rounded-lg border border-slate-300 bg-white px-1.5 py-1.5 text-xs outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" aria-label="Lokale farve">${Object.entries(
-								roomColors,
-							)
-								.map(([key, color]) => `<option value="${key}" ${room.nav === color.nav ? "selected" : ""}>${color.label}</option>`)
-								.join(
-									"",
-								)}</select><button data-remove-room="${index}" class="rounded-lg p-1.5 text-base font-bold text-slate-400 hover:bg-rose-50 hover:text-rose-700" aria-label="Fjern lokale">&times;</button></div>`,
+							`<div class="flex items-center gap-1.5">
+                    <div class="flex shrink-0 flex-col gap-0.5">
+                        <button type="button" data-move-room="${index}:up" ${index === 0 ? "disabled" : ""} class="flex h-4 w-5 items-center justify-center rounded bg-slate-100 text-[9px] leading-none text-slate-600 hover:bg-slate-200 disabled:opacity-25 disabled:pointer-events-none" aria-label="Flyt ${escapeHtml(room.name)} op">▲</button>
+                        <button type="button" data-move-room="${index}:down" ${index === settingsRooms.length - 1 ? "disabled" : ""} class="flex h-4 w-5 items-center justify-center rounded bg-slate-100 text-[9px] leading-none text-slate-600 hover:bg-slate-200 disabled:opacity-25 disabled:pointer-events-none" aria-label="Flyt ${escapeHtml(room.name)} ned">▼</button>
+                    </div>
+                    <input data-room-name="${index}" value="${escapeHtml(room.name)}" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm font-semibold outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" aria-label="Lokalnavn" />
+                    <select data-room-color="${index}" class="w-[88px] shrink-0 rounded-lg border border-slate-300 bg-white px-1.5 py-1.5 text-xs outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" aria-label="Lokale farve">${Object.entries(
+											roomColors,
+										)
+											.map(([key, color]) => `<option value="${key}" ${room.nav === color.nav ? "selected" : ""}>${color.label}</option>`)
+											.join("")}</select>
+                    <button data-remove-room="${index}" class="shrink-0 rounded-lg p-1.5 text-base font-bold text-slate-400 hover:bg-rose-50 hover:text-rose-700" aria-label="Fjern lokale">&times;</button>
+                </div>`,
 					)
 					.join("");
+
 				settingsRows.querySelectorAll("[data-remove-room]").forEach((button) =>
 					button.addEventListener("click", () => {
+						// Der skal altid være mindst ét lokale tilbage.
 						if (settingsRooms.length > 1) {
+							syncRoomEditsFromInputs();
 							settingsRooms.splice(Number(button.dataset.removeRoom), 1);
 							renderSettingsRows();
+							renderTableRoomRows();
 						}
 					}),
 				);
+				settingsRows.querySelectorAll("[data-move-room]").forEach((button) =>
+					button.addEventListener("click", () => {
+						const [index, direction] = button.dataset.moveRoom.split(":");
+						moveRoom(Number(index), direction);
+					}),
+				);
+			}
+
+			// Læser de igangværende ændringer i navne-/farve-felterne ind i settingsRooms, så de ikke går tabt, når rækkefølgen ændres (op/ned-pile), en række fjernes, eller et nyt lokale tilføjes. Gemmer IKKE til Firebase – det sker først ved "Gem opsætning".
+			function syncRoomEditsFromInputs() {
+				settingsRows.querySelectorAll("[data-room-name]").forEach((input) => {
+					const index = Number(input.dataset.roomName);
+					if (settingsRooms[index]) settingsRooms[index] = { ...settingsRooms[index], name: input.value };
+				});
+				settingsRows.querySelectorAll("[data-room-color]").forEach((select) => {
+					const index = Number(select.dataset.roomColor);
+					const color = roomColors[select.value];
+					if (settingsRooms[index] && color) settingsRooms[index] = { ...settingsRooms[index], ...color };
+				});
+			}
+
+			// Bytter plads på to nabo-lokaler i listen. Rækkefølgen afspejles med det samme
+			// i bordoversigten og i lokale-dropdowns, men gemmes først ved "Gem opsætning".
+			function moveRoom(index, direction) {
+				const targetIndex = index + (direction === "up" ? -1 : 1);
+				if (targetIndex < 0 || targetIndex >= settingsRooms.length) return;
+				syncRoomEditsFromInputs();
+				const reordered = [...settingsRooms];
+				[reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+				settingsRooms = reordered;
+				renderSettingsRows();
+				renderTableRoomRows();
 			}
 
 			// Højeste kendte pax-antal for et bordnummer på tværs af dagens hold.
@@ -3089,6 +3132,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			});
 			reservationsSearch.addEventListener("input", renderReservationsList);
 			document.querySelector("#addRoom").addEventListener("click", () => {
+				syncRoomEditsFromInputs();
 				settingsRooms.push({
 					id: `room-${Date.now()}`,
 					name: "Nyt lokale",
