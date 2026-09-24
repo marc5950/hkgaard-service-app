@@ -309,9 +309,9 @@
 						     knapper markerer blot en ret som serveret UDEN at bestille noget. -->
 						<div class="grid grid-cols-2 gap-2">
 							<button
-								data-status="arrived"
+								data-status="drinks_served"
 								class="status-button rounded-lg bg-rose-600 px-3 py-2 text-left text-sm font-bold text-white transition hover:bg-rose-700">
-								Ankommet
+								Drikkevarer serveret
 							</button>
 							<button
 								data-status="starter_served"
@@ -698,7 +698,13 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			// så "arrived" -> "starter_served" er et rent tjener-klik uden køkkenordre.
 			const statuses = {
 				empty: { label: "Ikke ankommet", card: "border-slate-300 bg-slate-200", badge: "bg-slate-200 text-slate-700", dot: "bg-slate-400" },
-				arrived: { label: "Ankommet · Venter forret", card: "border-rose-200 bg-rose-50", badge: "bg-rose-100 text-rose-800", dot: "bg-rose-500" },
+				arrived: { label: "Ankommet", card: "border-rose-200 bg-rose-50", badge: "bg-rose-100 text-rose-800", dot: "bg-rose-500" },
+				drinks_served: {
+					label: "Drikkevarer serveret - kør forret",
+					card: "border-rose-200 bg-rose-50",
+					badge: "bg-rose-100 text-rose-800",
+					dot: "bg-rose-500",
+				},
 				starter_served: {
 					label: "Forret serveret",
 					card: "border-amber-200 bg-amber-50",
@@ -738,7 +744,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			// og et klik på en anden knap kræver en bekræftelse.
 			const nextStatusByStatus = {
 				empty: "arrived",
-				arrived: "starter_served", // forretten laves samlet – ingen ventetid på køkkenet her
+				arrived: "drinks_served",
+				drinks_served: "starter_served", // forretten laves samlet – ingen ventetid på køkkenet her
 				starter_served: "main_ordered",
 				main_ordered: null, // venter på at køkkenet laver hovedretten
 				main_ready: "main_served",
@@ -750,7 +757,9 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 
 			// Forklaringen der vises i modalen, når vi venter på køkkenet.
 			const waitingTextByStatus = {
-				arrived: "Forretterne til holdet laves samlet. Klik 'Forret serveret', når den er sat på bordet.",
+				empty: "Marker bordet ankommet via reservationslisten (📅), eller klik 'Drikkevarer serveret', når gæsterne er ankommet.",
+				arrived: "Server velkomstdrinken og klik 'Drikkevarer serveret'.",
+				drinks_served: "Forretterne til holdet laves samlet. Klik 'Forret serveret', når den er sat på bordet.",
 				starter_served: "Bestil hovedretten, når bordet er klar til det.",
 				main_ordered: "Hovedretten er sendt til køkkenet. Vent på at køkkenet trykker den ud.",
 				main_ready: "Hovedretten er klar i køkkenet – kør den ud. Klik på den blinkende prik på bordkortet, når den er serveret.",
@@ -1947,13 +1956,14 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			const COURSE_PROGRESS = {
 				empty: 0,
 				arrived: 1,
-				starter_served: 2,
-				main_ordered: 3,
-				main_ready: 4,
-				main_served: 5,
-				dessert_ordered: 6,
-				dessert_ready: 7,
-				dessert_served: 8,
+				drinks_served: 2,
+				starter_served: 3,
+				main_ordered: 4,
+				main_ready: 5,
+				main_served: 6,
+				dessert_ordered: 7,
+				dessert_ready: 8,
+				dessert_served: 9,
 			};
 
 			// Lægger klassisk/pescetarisk pax sammen for de borde, der opfylder et filter.
@@ -2761,8 +2771,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					note: note || "",
 					extras: { ...(extras || previousTable.extras || {}) },
 				};
-				// Velkomstdrinken er serveret, når forretten er kørt ud.
-				if (status === "starter_served") values.extras.welcomeDrinkQuantity = 0;
+				// Velkomstdrinken er serveret, når drikkevarerne er kørt ud.
+				if (status === "drinks_served") values.extras.welcomeDrinkQuantity = 0;
 
 				// TIMER 1: "seatedAt" sættes første gang bordet markeres ankommet og bevares
 				// uændret resten af måltidet, så kortet kan vise den samlede tid.
