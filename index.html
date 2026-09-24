@@ -80,8 +80,8 @@
 					box-shadow: 0 0 0 7px rgba(245, 158, 11, 0.38);
 				}
 			}
-			/* Blinker på et hold-faneblad, når der er en aktiv køkkenordre på et hold,
-			   man ikke selv kigger på lige nu – se renderTimeSlotTabs. */
+			/* Blinker på et hold-faneblad, når der er en aktiv køkken-/runner-/bar-ordre
+			   på et hold, man ikke selv kigger på lige nu. */
 			.time-slot-tab-alert {
 				animation: time-slot-alert-pulse 1.1s ease-in-out infinite;
 			}
@@ -128,7 +128,7 @@
 		</style>
 	</head>
 	<body class="min-h-screen">
-		<!-- ===== Topbjælke: forbindelsesstatus, skift til køkken/runner, opsætning ===== -->
+		<!-- ===== Topbjælke: forbindelsesstatus, skift mellem visninger, opsætning ===== -->
 		<div class="mx-auto min-h-screen max-w-[1600px] px-4 py-5 pb-32 sm:px-8 sm:py-8 sm:pb-28">
 			<header class="mb-6 flex flex-col gap-3 border-b border-slate-200 pb-4 sm:mb-8 sm:pb-6">
 				<!-- Række 1: titel + status + admin-menu -->
@@ -168,30 +168,36 @@
 					</div>
 				</div>
 
-				<!-- Række 2: segmenteret visningsvælger (Borde / Køkken / Runner) -->
+				<!-- Række 2: segmenteret visningsvælger (Borde / Køkken / Bar / Runner) -->
 				<nav class="flex gap-1 rounded-xl bg-slate-100 p-1" aria-label="Skift visning">
 					<button
 						id="tablesToggle"
 						data-view="tables"
-						class="view-toggle flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold transition">
+						class="view-toggle flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-sm font-bold transition">
 						<span aria-hidden="true">🍽️</span><span class="hidden sm:inline">Borde</span>
 					</button>
 					<button
 						id="kitchenToggle"
 						data-view="kitchen"
-						class="view-toggle flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold transition">
+						class="view-toggle flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-sm font-bold transition">
 						<span aria-hidden="true">👨‍🍳</span><span class="hidden sm:inline">Køkken</span>
+					</button>
+					<button
+						id="barToggle"
+						data-view="bar"
+						class="view-toggle flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-sm font-bold transition">
+						<span aria-hidden="true">🍹</span><span class="hidden sm:inline">Bar</span>
 					</button>
 					<button
 						id="runnerToggle"
 						data-view="runner"
-						class="view-toggle flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold transition">
+						class="view-toggle flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-sm font-bold transition">
 						<span aria-hidden="true">🏃</span><span class="hidden sm:inline">Runner</span>
 					</button>
 				</nav>
 			</header>
 
-			<!-- Tidspunkter: hver dags Dining Week-hold. Valget styrer både bordoversigt, køkken og runner. -->
+			<!-- Tidspunkter: hver dags Dining Week-hold. Valget styrer alle fire visninger. -->
 			<nav id="timeSlotTabs" class="mb-6 flex flex-wrap gap-2" aria-label="Vælg hold"></nav>
 
 			<!-- Farveforklaring til bordkortene -->
@@ -225,7 +231,7 @@
 			</nav>
 
 			<!-- Fast, altid tilgængelig genvej til at finde en reservation på tjener-siden
-			     (skjules i køkken- og runner-visningen, ligesom roomHotbar ovenfor). -->
+			     (skjules i køkken-, bar- og runner-visningen, ligesom roomHotbar ovenfor). -->
 			<button
 				id="reservationsToggle"
 				type="button"
@@ -273,8 +279,26 @@
 				</p>
 			</section>
 
-			<!-- Visning 3: runner-køen – alle retter der er meldt klar i køkkenet,
-			     samt forretter der skal ud efter "Drikkevarer serveret". -->
+			<!-- Visning 3: bar-køen – ekstra drikkevarer der skal laves.
+			     Velkomstdrinks og vinmenu vises kun som info på kortene. -->
+			<section id="barView" class="hidden" aria-labelledby="barTitle">
+				<div class="mb-6 flex items-end justify-between gap-4">
+					<div>
+						<p class="mb-2 text-xs font-bold uppercase tracking-[.25em] text-slate-500">Live drikkevarer</p>
+						<h2 id="barTitle" class="font-display text-4xl font-bold text-slate-900">Bar</h2>
+					</div>
+					<span id="barCount" class="rounded-full bg-violet-100 px-3 py-2 text-sm font-bold text-violet-900">0 borde</span>
+				</div>
+				<div id="barSummary" class="mb-2 flex flex-wrap gap-2" aria-label="Mangler i baren"></div>
+				<div id="barInfo" class="mb-6 flex flex-wrap gap-2" aria-label="Information til baren"></div>
+				<div id="barOrders" class="grid gap-5 md:grid-cols-2 xl:grid-cols-3"></div>
+				<p id="emptyBar" class="rounded-2xl border-2 border-dashed border-slate-300 p-10 text-center text-slate-500">
+					Ingen aktive drikkevare-bestillinger. Er du på den rigtige tid?
+				</p>
+			</section>
+
+			<!-- Visning 4: runner-køen – alle retter der er meldt klar i køkkenet
+			     eller baren, og som skal bæres ud til bordet. -->
 			<section id="runnerView" class="hidden" aria-labelledby="runnerTitle">
 				<div class="mb-6 flex items-end justify-between gap-4">
 					<div>
@@ -316,8 +340,6 @@
 				<div class="space-y-4 p-4 sm:p-5">
 					<div>
 						<div class="mb-2 flex items-center justify-between">
-							<!-- Bookingdata kommer fra den daglige import, men kan rettes her – fx hvis der
-							     dukker flere eller færre gæster op, end der er reserveret til. -->
 							<p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Booking</p>
 							<button
 								id="editBookingToggle"
@@ -347,13 +369,8 @@
 						<p id="bookingEditMessage" class="min-h-5 text-sm font-bold text-rose-700" role="status"></p>
 					</div>
 					<div>
-						<!-- Statusknapper: hver knap gemmer bordet og sender evt. en ret til køkkenet.
-						     data-status skal matche nøglerne i statuses/courseByStatus i JS. -->
 						<p class="mb-2 text-sm font-bold text-slate-700">Opdater status</p>
 						<p id="statusHint" class="mb-3 hidden rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600" role="status"></p>
-						<!-- To slags knapper: mørke/farvede knapper SENDER en bestilling til
-						     køkkenet (Kør forret, Bestil hovedret, Bestil dessert). Lyse
-						     knapper markerer blot en ret som serveret UDEN at bestille noget. -->
 						<div class="grid grid-cols-2 gap-2">
 							<button
 								data-status="drinks_served"
@@ -402,10 +419,8 @@
 								+ Tilføj drikkevarer
 							</button>
 						</div>
-						<!-- Til gæster uden vinmenu, eller ekstra ud over den. Selve valget af
-						     konkrete varer sker i #drinksPickerModal; her vises kun overblikket,
-						     så det er nemt at overføre til kassen ved betaling. -->
 						<div id="drinksSummary" class="space-y-1 rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-sm"></div>
+						<p class="mt-1.5 text-[11px] text-slate-400">Nye drikkevarer sendes automatisk til baren, når du trykker "Færdig" i varevælgeren.</p>
 					</div>
 					<div>
 						<label for="tableNote" class="mb-2 block text-sm font-bold text-slate-700">Note</label
@@ -433,7 +448,7 @@
 			</div>
 		</div>
 
-		<!-- ===== Opsætnings-modal: lokaler, antal borde, farver og nulstilling ===== -->
+		<!-- ===== Opsætnings-modal ===== -->
 		<div
 			id="settingsModal"
 			class="modal-backdrop fixed inset-0 z-50 hidden items-end justify-center overflow-hidden p-3 sm:items-center sm:p-6"
@@ -529,7 +544,7 @@
 					<button
 						id="closeDrinksPickerBottom"
 						class="w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-bold text-white transition hover:bg-slate-700">
-						Færdig
+						Færdig (send til bar)
 					</button>
 				</div>
 			</div>
@@ -567,7 +582,7 @@
 			</div>
 		</div>
 
-		<!-- ===== Reservations-modal: find en gæst hurtigt, uanset hvilket hold/lokale ===== -->
+		<!-- ===== Reservations-modal ===== -->
 		<div
 			id="reservationsModal"
 			class="modal-backdrop fixed inset-0 z-50 hidden items-end justify-center overflow-hidden p-3 sm:items-center sm:p-6"
@@ -593,14 +608,12 @@
 						class="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm outline-none transition focus:border-rose-500 focus:ring-4 focus:ring-rose-100" />
 					<div id="reservationsSlotFilter" class="flex flex-wrap gap-1.5" aria-label="Filtrer efter hold"></div>
 					<p id="reservationsMessage" class="min-h-4 text-xs font-bold text-rose-700" role="status"></p>
-					<!-- Aktive reservationer for det valgte hold (eller alle hold ved søgning).
-					     Afsluttede borde samles nederst med en Genåbn-knap. -->
 					<div id="reservationsList" class="max-h-[60vh] space-y-1.5 overflow-y-auto"></div>
 				</div>
 			</div>
 		</div>
 
-		<!-- ===== Import-modal: indsæt dagens reservationer som rå JSON ===== -->
+		<!-- ===== Import-modal ===== -->
 		<div
 			id="importModal"
 			class="modal-backdrop fixed inset-0 z-50 hidden items-end justify-center overflow-hidden p-3 sm:items-center sm:p-6"
@@ -634,8 +647,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					>
 					<p class="text-sm font-bold text-emerald-700">
 						Kun de tidspunkter, der står i den indsatte JSON, bliver opdateret – øvrige tidspunkter og deres borde røres ikke. Findes et bordnummer
-						allerede for det tidspunkt, opdateres navn/pax/menuvalg (status og timere bevares); ellers oprettes bordet som nyt. Bordenes
-						lokale-tildeling (under Opsætning → Fordel borde på lokaler) påvirkes aldrig af en import.
+						allerede for det tidspunkt, opdateres navn/pax/menuvalg (status og timere bevares); ellers oprettes bordet som nyt.
 					</p>
 					<textarea
 						id="importJson"
@@ -675,13 +687,14 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						   ----------------------------------------------------------------------------
 						   Dagen starter med en JSON-import af Dining Week-reservationerne. Al
 						   bookingdata (navn, pax, menuvalg) kommer derfra – tjeneren redigerer kun
-						   status og en fri note. Appen har tre visninger:
+						   status og en fri note. Appen har fire visninger:
 
 						     1) Bordoversigt  – tjeneren vælger et hold, ser bordene og opdaterer status.
 						     2) Køkkenkø      – køkkenet ser hovedret/dessert-bestillinger, som "trykkes ud".
-						     3) Runner        – runneren ser alle retter, der er klar til at blive
-						                        båret ud (forret efter "Drikkevarer serveret",
-						                        hovedret/dessert efter køkkenets "Ready").
+						     3) Bar           – baren ser ekstra drikkevarer, som "trykkes ud".
+						                        Velkomstdrinks og vinmenu vises kun som info.
+						     4) Runner        – runneren ser alle retter/drikkevarer, der er klar til
+						                        at blive båret ud.
 
 						   Filens opbygning (søg efter overskrifterne):
 						     1.  FIREBASE-OPSÆTNING
@@ -693,8 +706,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						     7.  OPSÆTNINGS-MODAL (lokalenavne/farver, bordfordeling, nulstil)
 						     8.  IMPORT-MODAL (indsæt dagens reservationer som JSON)
 						     9.  BORDOVERSIGT (tegn bordkortene)
-						     10. KØKKENKØ + RUNNER (retter i køen + visninger)
-						     11. KØKKEN- OG RUNNER-ORDRER (opret bestillinger)
+						     10. KØKKEN / BAR / RUNNER (køer + visninger)
+						     11. ORDRER (køkken, bar, runner)
 						     12. BORD-MODAL (åbn bord, statusknapper, note)
 						     13. EVENT-BINDINGER (hvilke klik gør hvad)
 						     14. OPSTART + FIREBASE-LYTTERE
@@ -702,10 +715,11 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 
 			/* ----------------------------------------------------------------------------
 						   1. FIREBASE-OPSÆTNING
-						   Data ligger i Firebase Realtime Database under otte nøgler:
+						   Data ligger i Firebase Realtime Database under ni nøgler:
 						     tables/{hold}/{bordnr}   – én booking pr. bord pr. tidspunkt (fra import)
-						     kitchenOrders/           – én post pr. hovedret/dessert-bestilling (køkken)
-						     runnerOrders/            – én post pr. ret der er klar til at blive båret ud
+						     kitchenOrders/           – én post pr. hovedret/dessert-bestilling
+						     barOrders/               – én post pr. ekstra drikkevare-bestilling
+						     runnerOrders/            – én post pr. ret/drikkevare der skal bæres ud
 						     settings/rooms           – lokalernes navne og farve
 						     settings/tableRooms      – hvilket lokale hvert bordnummer hører til
 						     settings/tableNumbers    – bordskilt-nummer, hvis personalet har sat et
@@ -740,12 +754,9 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			// Alle mulige bordstatusser og de farver, de vises med.
-			// "empty" bruges BÅDE før gæsterne er ankommet OG efter bordet er gjort ledigt
-			// igen – bookingens navn/pax/menuvalg bevares under hele forløbet.
-			// Hver ret (hovedret/dessert) har to trin: "..._ordered" (bestilt, venter på
-			// køkkenet) og "..._ready" (køkkenet har meldt den klar – prikken blinker).
-			// Forretten bestilles IKKE pr. bord: hele holdets forretter laves samlet,
-			// så "drinks_served" opretter en runner-ordre – se applyTableStatus.
+			// "empty" bruges BÅDE før gæsterne er ankommet OG efter bordet er gjort ledigt.
+			// "drinks_served" markerer at velkomstdrinken er serveret og forretten er på vej
+			// ud via runneren.
 			const statuses = {
 				empty: { label: "Ikke ankommet", card: "border-slate-300 bg-slate-200", badge: "bg-slate-200 text-slate-700", dot: "bg-slate-400" },
 				arrived: { label: "Ankommet", card: "border-rose-200 bg-rose-50", badge: "bg-rose-100 text-rose-800", dot: "bg-rose-500" },
@@ -789,23 +800,19 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				},
 			};
 
-			// Den normale rækkefølge i servicen. null betyder "vi venter" (på køkkenet,
-			// eller på at bordet er klar til næste ret) – så er ingen knap fremhævet,
-			// og et klik på en anden knap kræver en bekræftelse.
 			const nextStatusByStatus = {
 				empty: "arrived",
 				arrived: "drinks_served",
-				drinks_served: "starter_served", // forretten laves samlet – ingen ventetid på køkkenet her
+				drinks_served: "starter_served",
 				starter_served: "main_ordered",
-				main_ordered: null, // venter på at køkkenet laver hovedretten
+				main_ordered: null,
 				main_ready: "main_served",
 				main_served: "dessert_ordered",
-				dessert_ordered: null, // venter på at køkkenet laver desserten
+				dessert_ordered: null,
 				dessert_ready: "dessert_served",
 				dessert_served: "empty",
 			};
 
-			// Forklaringen der vises i modalen, når vi venter på køkkenet/runneren.
 			const waitingTextByStatus = {
 				empty: "Marker bordet ankommet via reservationslisten (📅), eller klik 'Drikkevarer serveret', når gæsterne er ankommet.",
 				arrived: "Server velkomstdrinken og klik 'Drikkevarer serveret'.",
@@ -826,14 +833,13 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				dessert_ordered: { course: "Dessert", readyStatus: "dessert_ready" },
 			};
 
-			// Når en runner melder en ret "kør mad", skal bordets status flyttes hertil.
+			// Når en runner melder en ret/drikkevare "kør", skal bordets status flyttes hertil.
+			// Drikkevarer har ingen status – de ryddes bare fra runner-køen.
 			const servedStatusByCourse = {
 				starter: "starter_served",
 				main: "main_served",
 				dessert: "dessert_served",
 			};
-			// Omvendt: når bordet når en "serveret"-status, hvilken ret-kategori hører den til?
-			// Bruges til automatisk at rydde ventende runner-ordrer for samme ret.
 			const courseKeyByServedStatus = {
 				starter_served: "starter",
 				main_served: "main",
@@ -842,7 +848,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 
 			// Drikkevarer der ikke er en del af den forudbestilte vinmenu – tjenerne
 			// tæller dem op undervejs, så det er nemt at overføre til kassen ved betaling.
-			// Kategorierne er ikke faste i koden – admin kan tilføje/omdøbe/fjerne dem.
 			const DEFAULT_DRINK_CATEGORIES = [
 				{ id: "soda", name: "Sodavand" },
 				{ id: "lemonade", name: "Lemonade" },
@@ -855,7 +860,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			// Reserveret vare-id: bruges når en kategori IKKE har konkrete varer under sig.
 			const SELF_ITEM_ID = "_self";
 
-			// Farvevalg pr. lokale (bruges i opsætnings-modalen).
 			const roomColors = {
 				rose: { label: "Rød", accent: "text-rose-700", line: "bg-rose-600", nav: "bg-rose-100 text-rose-800" },
 				sky: { label: "Blå", accent: "text-sky-700", line: "bg-sky-600", nav: "bg-sky-100 text-sky-800" },
@@ -866,7 +870,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				brown: { label: "Brun", accent: "text-amber-900", line: "bg-amber-800", nav: "bg-amber-100 text-amber-900" },
 			};
 
-			// Et helt tomt bord (bruges kun hvis et bordnummer ikke findes i den valgte booking).
 			const emptyTable = {
 				status: "empty",
 				guests: 0,
@@ -884,36 +887,35 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						---------------------------------------------------------------------------- */
 			let tables = Object.fromEntries(TIME_SLOTS.map((slot) => [slotKey(slot), {}])); // { "1730": { bordnr: booking } }
 			let kitchenOrders = {}; // { ordreId: {tableId, slot, course, quantity, status...} }
-			let runnerOrders = {}; // { ordreId: {tableId, slot, room, course, quantity, note, createdAt} }
-			let activeTableId = null; // bordet der er åbnet i modalen (null = lukket)
-			let activeView = "tables"; // "tables", "kitchen" eller "runner"
-			let selectedSlotKey = slotKey(TIME_SLOTS[0]); // hvilket hold der vises lige nu
-			let hasAutoSelectedSlot = false; // vælg automatisk første hold med data, men kun én gang
+			let barOrders = {}; // { ordreId: {tableId, slot, itemId, itemName, categoryId, quantity...} }
+			let runnerOrders = {}; // { ordreId: {tableId, slot, course, quantity, note, createdAt} }
+			let barPickerSnapshot = null; // snapshot af bordets drikkevarer da varevælgeren blev åbnet
+			let activeTableId = null;
+			let activeView = "tables"; // "tables", "kitchen", "bar" eller "runner"
+			let selectedSlotKey = slotKey(TIME_SLOTS[0]);
+			let hasAutoSelectedSlot = false;
 
-			// Lokalerne som de er sat op (uden bordnumre – dem får de fra tableRoomAssignments).
 			let settingsRooms = [
 				{ id: "cafe", name: "Cafe", accent: "text-rose-700", line: "bg-rose-600", nav: "bg-rose-100 text-rose-800" },
 				{ id: "festsal", name: "Festsal", accent: "text-sky-700", line: "bg-sky-600", nav: "bg-sky-100 text-sky-800" },
 				{ id: "gul-stue", name: "Gul stue", accent: "text-amber-700", line: "bg-amber-500", nav: "bg-amber-100 text-amber-800" },
 				{ id: "terrase", name: "Terrase", accent: "text-emerald-700", line: "bg-emerald-600", nav: "bg-emerald-100 text-emerald-800" },
 			];
-			let tableRoomAssignments = {}; // { bordnummer: lokaleId }
-			let tableDisplayNumbers = {}; // { bordnummer (fra booking): bordskilt-nummer, valgt af personalet }
-			let drinkCategories = DEFAULT_DRINK_CATEGORIES.map((category) => ({ ...category })); // [{ id, name }, ...]
-			let drinkCatalog = {}; // { kategoriId: [{ id, name }, ...] }
-			let expandedDrinkCategory = null; // hvilken kategori der er foldet ud i varevælgeren
+			let tableRoomAssignments = {};
+			let tableDisplayNumbers = {};
+			let drinkCategories = DEFAULT_DRINK_CATEGORIES.map((category) => ({ ...category }));
+			let drinkCatalog = {};
+			let expandedDrinkCategory = null;
 
-			let currentRoomGroups = []; // genberegnes i renderTables(): [{ id, name, accent, line, nav, tableIds }]
-			const collapsedRooms = new Set(); // id'er på lokaler, der er klappet sammen
+			let currentRoomGroups = [];
+			const collapsedRooms = new Set();
 
-			// Filter i "Find en reservation". null = alle hold, ellers en slot-nøgle som "1730".
 			let reservationsSlotFilter = null;
 
 			/* ----------------------------------------------------------------------------
 						   4. DOM-REFERENCER
 						---------------------------------------------------------------------------- */
 
-			// Topbjælke og visninger
 			const connectionDot = document.querySelector("#connectionDot");
 			const connectionLabel = document.querySelector("#connectionLabel");
 			const tableCount = document.querySelector("#tableCount");
@@ -936,6 +938,15 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			const mainMissingPescetarian = document.querySelector("#mainMissingPescetarian");
 			const dessertMissing = document.querySelector("#dessertMissing");
 			const dayTotalPax = document.querySelector("#dayTotalPax");
+
+			// Bar-visning
+			const barView = document.querySelector("#barView");
+			const barToggle = document.querySelector("#barToggle");
+			const barOrdersElement = document.querySelector("#barOrders");
+			const barCount = document.querySelector("#barCount");
+			const emptyBar = document.querySelector("#emptyBar");
+			const barSummary = document.querySelector("#barSummary");
+			const barInfo = document.querySelector("#barInfo");
 
 			// Runner-visning
 			const runnerView = document.querySelector("#runnerView");
@@ -985,7 +996,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						   5. SMÅ HJÆLPEFUNKTIONER
 						---------------------------------------------------------------------------- */
 
-			// Gør brugerindtastet tekst ufarlig, før den sættes ind i HTML.
 			function escapeHtml(value) {
 				return String(value).replace(
 					/[&<>"']/g,
@@ -993,12 +1003,10 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				);
 			}
 
-			// Sikrer et helt, ikke-negativt tal (bruges på alle antalsfelter).
 			function toQuantity(value) {
 				return Math.max(0, Number(value) || 0);
 			}
 
-			// Ekstra drikkevarer (sodavand, øl, vin osv.) tastet ind af tjenerne.
 			function getDrinks(table) {
 				return (table.extras && table.extras.drinks) || {};
 			}
@@ -1009,7 +1017,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					0,
 				);
 			}
-			// Flad liste af valgte varer > 0, til oversigten i bordets modal.
 			function getDrinkEntries(table) {
 				const drinks = getDrinks(table);
 				const entries = [];
@@ -1026,27 +1033,22 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				});
 				return entries;
 			}
-			// Summen af valgte styk i én kategori.
 			function getCategoryTotal(table, categoryId) {
 				return Object.values(getDrinks(table)[categoryId] || {}).reduce((sum, count) => sum + toQuantity(count), 0);
 			}
-			// Et kort, unikt id til en ny kategori eller drikkevare.
 			function generateCatalogItemId() {
 				return `d${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 			}
 
-			// Bordet der er åbnet i modalen lige nu, for det valgte hold.
 			function getActiveTable() {
 				return (tables[selectedSlotKey] && tables[selectedSlotKey][activeTableId]) || emptyTable;
 			}
 
-			// Hvilket lokale hører bordet til (bruges kun til ordre-etiketter)?
 			function getRoomName(tableId) {
 				const roomId = tableRoomAssignments[String(tableId)];
 				return settingsRooms.find((room) => room.id === roomId)?.name || "";
 			}
 
-			// Nummeret der reelt står på bordskiltet, hvis personalet har angivet et.
 			function getDisplayNumber(tableId) {
 				const custom = tableDisplayNumbers[String(tableId)];
 				return custom !== undefined && custom !== "" ? custom : tableId;
@@ -1056,8 +1058,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						   RESERVATIONSLISTE ("Find en reservation")
 						---------------------------------------------------------------------------- */
 
-			// Én række pr. booket bord, uanset hold – kun borde med et navn tæller som
-			// en reservation. slotFilter = null betyder "tag alle hold med".
 			function getAllReservations({ slotFilter = null } = {}) {
 				const entries = [];
 				TIME_SLOTS.forEach((slot) => {
@@ -1085,7 +1085,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			function openReservations() {
 				reservationsSearch.value = "";
 				reservationsMessage.textContent = "";
-				// Som standard: kun det hold man selv står på.
 				reservationsSlotFilter = selectedSlotKey;
 				renderReservationsSlotFilter();
 				renderReservationsList();
@@ -1097,7 +1096,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				reservationsModal.classList.remove("flex");
 			}
 
-			// Filterbjælken øverst i reservations-modalen: "Alle hold" + ét faneblad pr. hold.
 			function renderReservationsSlotFilter() {
 				const buttons = [{ key: "", label: "Alle hold" }, ...TIME_SLOTS.map((slot) => ({ key: slotKey(slot), label: slot }))];
 				reservationsSlotFilterBar.innerHTML = buttons
@@ -1117,8 +1115,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				);
 			}
 
-			// Tegner listen. Aktive reservationer øverst, afsluttede borde samlet nederst.
-			// Ved søgning søges der på tværs af ALLE hold (filteret ignoreres).
 			function renderReservationsList() {
 				const query = reservationsSearch.value.trim().toLowerCase();
 				const isSearching = query.length > 0;
@@ -1161,7 +1157,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					.forEach((button) => button.addEventListener("click", () => reopenReservation(button.dataset.reopenReservation)));
 			}
 
-			// Én række i reservationslisten.
 			function renderReservationRow(entry, isFinished = false) {
 				const status = statuses[entry.status] || statuses.empty;
 				let action;
@@ -1186,7 +1181,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				</div>`;
 			}
 
-			// Genåbner et afsluttet bord direkte fra reservationslisten.
 			async function reopenReservation(key) {
 				const [slot, tableId] = key.split(":");
 				const table = tables[slot] && tables[slot][tableId];
@@ -1198,7 +1192,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				renderReservationsList();
 			}
 
-			// Markerer bordet som "Ankommet" direkte fra listen.
 			async function markReservationArrived(key) {
 				const [slot, tableId] = key.split(":");
 				const table = (tables[slot] && tables[slot][tableId]) || emptyTable;
@@ -1211,7 +1204,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				renderReservationsList();
 			}
 
-			// Åbner bordets modal direkte fra reservationslisten.
 			function openReservationTable(key) {
 				const [slot, tableId] = key.split(":");
 				closeReservations();
@@ -1224,7 +1216,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				openModal(tableId);
 			}
 
-			// Sorterer bordnumre efter bordskilt-nummeret (laveste først).
 			function compareByDisplayNumber(a, b) {
 				const displayA = getDisplayNumber(a);
 				const displayB = getDisplayNumber(b);
@@ -1234,59 +1225,48 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				return String(displayA).localeCompare(String(displayB), "da");
 			}
 
-			// "Forret" -> "starter", "Hovedret · pescetarisk" -> "main", "Dessert" -> "dessert".
+			// "Forret" -> "starter", "Hovedret · pescetarisk" -> "main",
+			// "Dessert" -> "dessert", "Drikkevare · Cola" -> "drink".
 			function getCourseKey(course) {
 				const normalizedCourse = String(course).toLowerCase();
 				if (normalizedCourse.startsWith("forret") || normalizedCourse.startsWith("starter")) return "starter";
 				if (normalizedCourse.startsWith("hovedret")) return "main";
+				if (normalizedCourse.startsWith("drikkevare") || normalizedCourse.startsWith("drink")) return "drink";
 				return "dessert";
 			}
 
-			// Hvor mange minutter har køkkenet/runneren haft ordren?
 			function minutesSince(timestamp) {
 				if (!timestamp) return 0;
 				return Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
 			}
 
-			// Hvor mange sekunder har køkkenet/runneren haft ordren?
 			function secondsSince(timestamp) {
 				if (!timestamp) return 0;
-
 				return Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
 			}
 
-			// Skriver et antal minutter som "42 min" eller, over en time, "1t 5m".
 			function formatDuration(minutes) {
 				if (minutes < 60) return `${minutes} min`;
 				return `${Math.floor(minutes / 60)}t ${minutes % 60}m`;
 			}
 
-			// Skriver et antal sekunder som "42s" eller, over et minut, "1m 5s".
 			function formatDurationWithSeconds(seconds) {
 				const minutes = Math.floor(seconds / 60);
 				const remainingSeconds = seconds % 60;
-
-				if (minutes < 60) {
-					return `${minutes}m ${remainingSeconds}s`;
-				}
-
+				if (minutes < 60) return `${minutes}m ${remainingSeconds}s`;
 				const hours = Math.floor(minutes / 60);
 				const remainingMinutes = minutes % 60;
-
 				return `${hours}t ${remainingMinutes}m ${remainingSeconds}s`;
 			}
 
-			// Er ordren en pescetarisk variant?
 			function isPescetarianCourse(course) {
 				return String(course).toLowerCase().includes("pescetar");
 			}
 
-			// Næste logiske trin for et bord – eller null, hvis vi venter på køkkenet.
 			function getNextStatus(currentStatus) {
 				return currentStatus in nextStatusByStatus ? nextStatusByStatus[currentStatus] : "arrived";
 			}
 
-			// Teksten på bekræftelsen, når man klikker uden for den normale rækkefølge.
 			function getConfirmMessage(status, currentStatus) {
 				if (status === "empty") return "Er du sikker på, at bordet skal gøres ledigt?";
 				if (status === currentStatus) {
@@ -1298,14 +1278,12 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				return "Dette følger ikke den normale rækkefølge. Er du sikker på, at du vil fortsætte?";
 			}
 
-			// Alle bordnumre, der findes i nogen af dagens hold.
 			function getAllKnownTableNumbers() {
 				const numbers = new Set();
 				TIME_SLOTS.forEach((slot) => Object.keys(tables[slotKey(slot)] || {}).forEach((number) => numbers.add(number)));
 				return Array.from(numbers).sort((a, b) => Number(a) - Number(b));
 			}
 
-			// Hvilket hold er "aktuelt" lige nu, ud fra klokken?
 			function getCurrentSlotKey() {
 				const now = new Date();
 				const nowMinutes = now.getHours() * 60 + now.getMinutes();
@@ -1317,21 +1295,20 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				return current;
 			}
 
-			// Har et hold en ventende køkkenordre?
 			function slotHasPendingOrders(key) {
 				return Object.values(kitchenOrders).some((order) => order.status === "pending" && order.slot === key);
 			}
-
-			// Har et hold en ventende runner-ordre?
 			function slotHasPendingRunnerOrders(key) {
 				return Object.values(runnerOrders).some((order) => order.slot === key);
+			}
+			function slotHasPendingBarOrders(key) {
+				return Object.values(barOrders).some((order) => order.slot === key);
 			}
 
 			/* ----------------------------------------------------------------------------
 						   6. HOLD + LOKALER
 						---------------------------------------------------------------------------- */
 
-			// Fanerne i toppen. Styrer bordoversigt, køkken og runner.
 			function renderTimeSlotTabs() {
 				const currentKey = getCurrentSlotKey();
 				timeSlotTabs.innerHTML = TIME_SLOTS.map((slot) => {
@@ -1339,7 +1316,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					const count = Object.keys(tables[key] || {}).length;
 					const isActive = key === selectedSlotKey;
 					const isCurrent = key === currentKey;
-					const needsAttention = !isActive && (slotHasPendingOrders(key) || slotHasPendingRunnerOrders(key));
+					const needsAttention = !isActive && (slotHasPendingOrders(key) || slotHasPendingRunnerOrders(key) || slotHasPendingBarOrders(key));
 					const colorClasses = isActive
 						? "bg-slate-900 text-white hover:bg-slate-700 active:bg-slate-950"
 						: "bg-white text-slate-700 hover:bg-slate-50 active:bg-slate-100";
@@ -1361,12 +1338,12 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						renderTimeSlotTabs();
 						renderTables();
 						if (activeView === "kitchen") renderKitchen();
+						if (activeView === "bar") renderBar();
 						if (activeView === "runner") renderRunner();
 					}),
 				);
 			}
 
-			// Fordeler det valgte holds bordnumre på lokaler ud fra tableRoomAssignments.
 			function computeRoomGroups() {
 				const slotTables = tables[selectedSlotKey] || {};
 				const tableNumbers = Object.keys(slotTables);
@@ -1394,7 +1371,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				return result;
 			}
 
-			// Genvejsknapperne i bunden af skærmen.
 			function renderRoomHotbar() {
 				hotbarButtons.innerHTML = currentRoomGroups
 					.map(
@@ -1415,7 +1391,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				);
 			}
 
-			// Markerer det valgte lokale i hotbaren.
 			function updateRoomHotbar(activeRoomId) {
 				document.querySelectorAll("[data-room-target]").forEach((button) => {
 					const isActive = button.dataset.roomTarget === activeRoomId;
@@ -1428,7 +1403,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						   7. OPSÆTNINGS-MODAL
 						---------------------------------------------------------------------------- */
 
-			// Én række pr. lokale: op/ned-pile, navn, farve og en slet-knap. Rækkefølgen her styrer både rækkefølgen i bordoversigten (grupperet pr.lokale) og rækkefølgen i lokale-dropdowns under "Bordskilte og lokaler".
 			function renderSettingsRows() {
 				settingsRows.innerHTML = settingsRooms
 					.map(
@@ -1451,7 +1425,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 
 				settingsRows.querySelectorAll("[data-remove-room]").forEach((button) =>
 					button.addEventListener("click", () => {
-						// Der skal altid være mindst ét lokale tilbage.
 						if (settingsRooms.length > 1) {
 							syncRoomEditsFromInputs();
 							settingsRooms.splice(Number(button.dataset.removeRoom), 1);
@@ -1468,7 +1441,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				);
 			}
 
-			// Læser de igangværende ændringer i navne-/farve-felterne ind i settingsRooms, så de ikke går tabt, når rækkefølgen ændres (op/ned-pile), en række fjernes, eller et nyt lokale tilføjes. Gemmer IKKE til Firebase – det sker først ved "Gem opsætning".
 			function syncRoomEditsFromInputs() {
 				settingsRows.querySelectorAll("[data-room-name]").forEach((input) => {
 					const index = Number(input.dataset.roomName);
@@ -1481,8 +1453,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				});
 			}
 
-			// Bytter plads på to nabo-lokaler i listen. Rækkefølgen afspejles med det samme
-			// i bordoversigten og i lokale-dropdowns, men gemmes først ved "Gem opsætning".
 			function moveRoom(index, direction) {
 				const targetIndex = index + (direction === "up" ? -1 : 1);
 				if (targetIndex < 0 || targetIndex >= settingsRooms.length) return;
@@ -1494,7 +1464,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				renderTableRoomRows();
 			}
 
-			// Højeste kendte pax-antal for et bordnummer på tværs af dagens hold.
 			function getTablePaxHint(number) {
 				let pax = null;
 				TIME_SLOTS.forEach((slot) => {
@@ -1504,8 +1473,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				return pax;
 			}
 
-			// Én række pr. bordnummer med et bordskilt-nummer og et lokale-valg.
-			// Øverst vises en lille optælling af, hvor mange borde der har 2 pax, 3 pax osv.
 			function renderTableRoomRows() {
 				const numbers = getAllKnownTableNumbers();
 				if (!numbers.length) {
@@ -1514,7 +1481,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					return;
 				}
 
-				// Tæl borde pr. pax-størrelse (bruger største pax på tværs af dagens hold).
 				const paxCounts = {};
 				numbers.forEach((number) => {
 					const pax = getTablePaxHint(number);
@@ -1549,7 +1515,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				settingsModal.classList.remove("flex");
 			}
 
-			// Læser lokalenavne/farver og bordfordelingen og gemmer dem i Firebase.
 			async function saveSettings() {
 				const nextRooms = settingsRooms.map((room, index) => ({
 					...room,
@@ -1593,7 +1558,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				}
 			}
 
-			// Fjerner alle bord-til-lokale tildelinger OG bordskilt-numre.
 			async function resetTableRoomAssignments() {
 				if (
 					!confirm(
@@ -1614,9 +1578,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				}
 			}
 
-			// Nulstiller status/timere for alle borde på alle hold og rydder køerne.
 			async function resetAllTables() {
-				if (!confirm("Nulstil status til 'Ikke ankommet' for ALLE borde på ALLE hold? Kun status, timere og kø-køerne ryddes.")) return;
+				if (!confirm("Nulstil status til 'Ikke ankommet' for ALLE borde på ALLE hold? Kun status, timere og alle køer ryddes.")) return;
 				const nextTables = {};
 				TIME_SLOTS.forEach((slot) => {
 					const key = slotKey(slot);
@@ -1628,11 +1591,13 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				try {
 					tables = nextTables;
 					kitchenOrders = {};
+					barOrders = {};
 					runnerOrders = {};
-					if (window.database) await update(ref(window.database), { tables: nextTables, kitchenOrders: {}, runnerOrders: {} });
+					if (window.database) await update(ref(window.database), { tables: nextTables, kitchenOrders: {}, barOrders: {}, runnerOrders: {} });
 					renderTimeSlotTabs();
 					renderTables();
 					renderKitchen();
+					renderBar();
 					renderRunner();
 					settingsMessage.textContent = "Status nulstillet for alle borde";
 				} catch (error) {
@@ -1645,8 +1610,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						   8. IMPORT-MODAL
 						---------------------------------------------------------------------------- */
 
-			// Understøtter både en flad liste med et "time"-felt pr. reservation og et
-			// objekt grupperet pr. tidspunkt: { "17:30": [...] }.
 			function normalizeImportPayload(raw) {
 				const bookingsBySlot = {};
 				TIME_SLOTS.forEach((slot) => (bookingsBySlot[slotKey(slot)] = []));
@@ -1665,7 +1628,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				return bookingsBySlot;
 			}
 
-			// Bygger en booking om til det interne bordformat.
 			function bookingToTable(booking, existingTable) {
 				const guests = toQuantity(booking.pax ?? booking.guests ?? booking.antal);
 				const extras = {
@@ -1673,8 +1635,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					wineQuantity: toQuantity(booking.vinmenu ?? booking.wine),
 					pescetarianWineQuantity: toQuantity(booking.drikmenu ?? booking.pescetarianWine),
 					welcomeDrinkQuantity: toQuantity(booking.gt ?? booking.welcomeDrink),
-					// Ekstra drikkevarer kommer aldrig fra bookingen – de tastes ind af
-					// tjenerne og skal bevares uændret, selvom bordet importeres igen.
 					drinks: existingTable?.extras?.drinks || {},
 				};
 				return {
@@ -1701,8 +1661,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				importModal.classList.remove("flex");
 			}
 
-			// Læser JSON-teksten og opdaterer KUN de tidspunkter og bordnumre, der reelt
-			// står i teksten – alt andet røres ikke.
 			async function saveImport() {
 				importMessage.textContent = "";
 
@@ -1777,6 +1735,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					if (typeof renderTimeSlotTabs === "function") renderTimeSlotTabs();
 					if (typeof renderTables === "function") renderTables();
 					if (typeof renderKitchen === "function") renderKitchen();
+					if (typeof renderBar === "function") renderBar();
 					if (typeof renderRunner === "function") renderRunner();
 
 					const slotLabel = touchedSlots.size === 1 ? "1 tidspunkt" : `${touchedSlots.size} tidspunkter`;
@@ -1790,7 +1749,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				}
 			}
 
-			// Rydder ALT bookingdata for alle tidspunkter (samt begge køer).
 			async function clearAllReservations() {
 				if (
 					!confirm("Ryd ALLE reservationer for alle tidspunkter? Navn, pax, menuvalg og status forsvinder for samtlige borde og kan ikke fortrydes.")
@@ -1803,11 +1761,13 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				try {
 					tables = nextTables;
 					kitchenOrders = {};
+					barOrders = {};
 					runnerOrders = {};
-					if (window.database) await update(ref(window.database), { tables: nextTables, kitchenOrders: {}, runnerOrders: {} });
+					if (window.database) await update(ref(window.database), { tables: nextTables, kitchenOrders: {}, barOrders: {}, runnerOrders: {} });
 					renderTimeSlotTabs();
 					renderTables();
 					renderKitchen();
+					renderBar();
 					renderRunner();
 					importMessage.textContent = "Alle reservationer er ryddet";
 				} catch (error) {
@@ -1820,7 +1780,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						   9. BORDOVERSIGT
 						---------------------------------------------------------------------------- */
 
-			// Tegner ét bordkort pr. bord, grupperet i lokaler, for det valgte hold.
 			function renderTables() {
 				const slotTables = tables[selectedSlotKey] || {};
 				const totalPax = Object.values(slotTables).reduce((sum, table) => sum + toQuantity(table.guests), 0);
@@ -1835,8 +1794,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 
 				tablesGrid.querySelectorAll("[data-table-id]").forEach((card) => card.addEventListener("click", () => openModal(card.dataset.tableId)));
 
-				// Klik (eller Enter/mellemrum) på den blinkende prik markerer retten som
-				// serveret med det samme.
 				tablesGrid.querySelectorAll("[data-quick-serve]").forEach((dot) => {
 					const trigger = (event) => {
 						event.stopPropagation();
@@ -1866,7 +1823,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				);
 			}
 
-			// Tæller, hvor mange aktive borde (dvs. borde uden completedAt) der står på hver farve/status-kategori lige nu, og skriver tallene i statusLegend. Rød dækker både "arrived" og "drinks_served", Blå dækker hele hovedret-flowet (bestilt/klar/serveret), Grøn dækker hele dessert-flowet. Samme regler som farveforklaringen i toppen – se statuses' card-klasser.
 			function renderStatusLegend() {
 				const slotTables = Object.values(tables[selectedSlotKey] || {});
 				const activeTables = slotTables.filter((table) => !table.completedAt);
@@ -1902,7 +1858,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 							</section>`;
 			}
 
-			// HTML for ét bordkort: nummer, navn, pax, tilvalgs-ikoner, status og note.
 			function renderTableCard(id, table) {
 				const status = statuses[table.status] || statuses.empty;
 				const extras = table.extras || {};
@@ -1960,7 +1915,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 							</button>`;
 			}
 
-			// Liste over borde, hvor "Gør bordet ledigt" er blevet trykket.
 			function renderFinishedList(slotTables) {
 				const finished = Object.entries(slotTables)
 					.filter(([, table]) => table.completedAt)
@@ -1983,28 +1937,28 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			/* ----------------------------------------------------------------------------
-						   10. KØKKENKØ + RUNNER
+						   10. KØKKEN / BAR / RUNNER
 						---------------------------------------------------------------------------- */
 
-			// Skifter mellem bordoversigt, køkken og runner.
-			// Visningen skrives i adressen (#kokken / #runner / #borde), så hver skærm
-			// kan bogmærkes.
+			// Skifter mellem bordoversigt, køkken, bar og runner.
+			// Visningen skrives i adressen (#kokken / #bar / #runner / #borde).
 			function setView(view) {
 				activeView = view;
 				const isTables = view === "tables";
 				const isKitchen = view === "kitchen";
+				const isBar = view === "bar";
 				const isRunner = view === "runner";
-				const hash = isKitchen ? "#kokken" : isRunner ? "#runner" : "#borde";
+				const hash = isKitchen ? "#kokken" : isBar ? "#bar" : isRunner ? "#runner" : "#borde";
 				if (window.location.hash !== hash) window.history.replaceState(null, "", hash);
 				tablesGrid.classList.toggle("hidden", !isTables);
 				kitchenView.classList.toggle("hidden", !isKitchen);
+				barView.classList.toggle("hidden", !isBar);
 				runnerView.classList.toggle("hidden", !isRunner);
 				statusLegend.classList.toggle("hidden", !isTables);
 				roomHotbar.classList.toggle("hidden", !isTables);
 				reservationsToggle.classList.toggle("hidden", !isTables);
 				kitchenSummary.classList.remove("hidden");
 
-				// Fremhæv det aktive segment i den segmenterede visningsvælger.
 				document.querySelectorAll(".view-toggle").forEach((button) => {
 					const isActive = button.dataset.view === view;
 					button.classList.toggle("bg-white", isActive);
@@ -2015,10 +1969,12 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				});
 
 				if (isKitchen) renderKitchen();
+				if (isBar) renderBar();
 				if (isRunner) renderRunner();
 			}
 
-			// Samler alle ventende køkken-ordrer for DET VALGTE HOLD, pr. bord og pr. ret.
+			/* ---- Køkken ---- */
+
 			function groupPendingOrders() {
 				const activeOrders = Object.entries(kitchenOrders)
 					.filter(([, order]) => order.status === "pending" && order.slot === selectedSlotKey)
@@ -2039,7 +1995,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				return { activeOrders, groupedOrders };
 			}
 
-			// Rækkefølgen en booking gennemgår – bruges til at afgøre, om en ret stadig mangler.
 			const COURSE_PROGRESS = {
 				empty: 0,
 				arrived: 1,
@@ -2053,7 +2008,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				dessert_served: 9,
 			};
 
-			// Lægger klassisk/pescetarisk pax sammen for de borde, der opfylder et filter.
 			function sumTablePax(tableList, predicate) {
 				return tableList.filter(predicate).reduce(
 					(totals, table) => {
@@ -2066,8 +2020,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				);
 			}
 
-			// Tællerne øverst: "mangler" viser, hvor mange kuverter af HELE holdet der
-			// stadig venter på den pågældende ret.
 			function renderKitchenSummary() {
 				const slotTables = Object.values(tables[selectedSlotKey] || {}).filter((table) => !table.completedAt);
 
@@ -2080,14 +2032,11 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				mainMissingPescetarian.textContent = `${mainTotals.pescetarian} pescetar`;
 				dessertMissing.textContent = `${dessertTotals.classic + dessertTotals.pescetarian} pax`;
 
-				// Dagens samlede antal kuverter (alle hold) – forret, hovedret og
-				// dessert er samme total, da hver gæst får præcis én af hver.
 				const dayTables = TIME_SLOTS.flatMap((slot) => Object.values(tables[slotKey(slot)] || {}));
 				const dayTotal = sumTablePax(dayTables, () => true);
 				dayTotalPax.textContent = `${dayTotal.classic + dayTotal.pescetarian} pax (${dayTotal.classic} klassisk · ${dayTotal.pescetarian} pescetar)`;
 			}
 
-			// Tegner hele køkkenvisningen.
 			function renderKitchen() {
 				const { activeOrders, groupedOrders } = groupPendingOrders();
 
@@ -2104,7 +2053,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					.forEach((button) => button.addEventListener("click", () => completeCourse(button.dataset.completeTable, button.dataset.completeCourse)));
 			}
 
-			// HTML for ét bord i køkkenkøen.
 			function renderKitchenCard(group) {
 				const courseBoxes = Array.from(group.courses.entries())
 					.map(([courseKey, courseOrders]) => renderKitchenCourse(group, courseKey, courseOrders))
@@ -2117,9 +2065,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 							</article>`;
 			}
 
-			// HTML for én ret i køkkenkøen: navn, antal pax og "Ready"-knappen.
-			// Kun hovedretten har en pescetarisk variant, så det er den eneste ret, hvor
-			// klassisk/pescetar-opdelingen vises. Forret og dessert viser bare "x pax".
 			function renderKitchenCourse(group, courseKey, courseOrders) {
 				const firstOrder = courseOrders[0][1];
 				const colors = {
@@ -2129,7 +2074,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				}[courseKey];
 
 				const isMain = courseKey === "main";
-
 				const totalQuantity = courseOrders.reduce((total, [, order]) => total + toQuantity(order.quantity), 0);
 
 				const sumQuantity = (pescetarian) =>
@@ -2155,8 +2099,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				return `<div class="rounded-xl border-2 p-5 ${colors}"><div class="flex flex-wrap items-center justify-between gap-4"><div><p class="flex items-center gap-2 text-xl font-bold">${escapeHtml(firstOrder.course.replace(/ · pescetarisk/gi, ""))}${waitBadge}</p>${paxLine}</div><button data-complete-course="${escapeHtml(courseKey)}" data-complete-table="${escapeHtml(group.tableId)}" class="min-h-14 w-full rounded-xl bg-slate-900 px-5 py-4 text-lg font-bold text-white shadow-sm transition hover:bg-slate-700 sm:w-auto sm:min-w-32">Ready</button></div></div>`;
 			}
 
-			// Færdigmelder alle køkken-ordrer for én ret på ét bord (både klassisk og
-			// pescetarisk), afgrænset til det hold, der er valgt lige nu.
 			async function completeCourse(tableId, courseKey) {
 				const orderIds = Object.entries(kitchenOrders)
 					.filter(
@@ -2170,8 +2112,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				for (const orderId of orderIds) await completeOrder(orderId);
 			}
 
-			// Markerer én køkken-ordre som færdig: sætter bordets status til fx "Hovedret klar",
-			// fjerner selve ordren, og opretter en runner-ordre på samme ret.
 			async function completeOrder(orderId) {
 				const order = kitchenOrders[orderId];
 				if (!order) return;
@@ -2197,16 +2137,137 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					await update(ref(window.database), changes);
 				}
 
-				// Når køkkenet melder en ret klar, oprettes en runner-ordre på samme ret,
-				// så runneren kan se hvad der skal bæres ud og til hvilket bord.
 				if (order.readyStatus) {
 					await createRunnerOrder(order.tableId, order.course, order.quantity, order.note, slot);
 				}
 			}
 
-			/* ---- Runner-visning ---- */
+			/* ---- Bar ---- */
 
-			// Samler alle ventende runner-ordrer for det valgte hold, pr. bord og pr. ret.
+			// Samler alle ventende bar-ordrer for det valgte hold, pr. bord.
+			function groupBarOrders() {
+				const activeOrders = Object.entries(barOrders)
+					.filter(([, order]) => order.slot === selectedSlotKey)
+					.sort(([, first], [, second]) => (first.createdAt || 0) - (second.createdAt || 0));
+
+				const groupedOrders = new Map();
+				activeOrders.forEach(([id, order]) => {
+					const tableKey = String(order.tableId);
+					if (!groupedOrders.has(tableKey)) {
+						groupedOrders.set(tableKey, { tableId: order.tableId, room: order.room || "", note: order.note || "", items: [] });
+					}
+					groupedOrders.get(tableKey).items.push([id, order]);
+				});
+
+				return { activeOrders, groupedOrders };
+			}
+
+			// Tæller mangler pr. kategori (fx "Sodavand: 9").
+			function renderBarSummary() {
+				const activeOrders = Object.values(barOrders).filter((order) => order.slot === selectedSlotKey);
+				const byCategory = {};
+				activeOrders.forEach((order) => {
+					const key = order.categoryId || "ukendt";
+					if (!byCategory[key]) byCategory[key] = { name: order.categoryName || "Ukendt", count: 0 };
+					byCategory[key].count += toQuantity(order.quantity);
+				});
+				if (!Object.keys(byCategory).length) {
+					barSummary.innerHTML = "";
+					return;
+				}
+				barSummary.innerHTML = Object.values(byCategory)
+					.map(
+						(entry) =>
+							`<span class="rounded-full bg-violet-100 px-3 py-1.5 text-xs font-bold text-violet-900">Mangler · ${escapeHtml(entry.name)}: <strong>${entry.count}</strong></span>`,
+					)
+					.join("");
+			}
+
+			// Info-chips: total velkomstdrinks og vinmenu for det valgte hold.
+			function renderBarInfo() {
+				const slotTables = Object.values(tables[selectedSlotKey] || {}).filter((table) => !table.completedAt);
+				const welcomeTotal = slotTables.reduce((sum, t) => sum + toQuantity(t.extras?.welcomeDrinkQuantity), 0);
+				const wineTotal = slotTables.reduce((sum, t) => sum + toQuantity(t.extras?.wineQuantity), 0);
+				const pescWineTotal = slotTables.reduce((sum, t) => sum + toQuantity(t.extras?.pescetarianWineQuantity), 0);
+				const chips = [];
+				if (welcomeTotal)
+					chips.push(
+						`<span class="rounded-full bg-fuchsia-100 px-3 py-1.5 text-xs font-bold text-fuchsia-800">🥂 Velkomstdrinks: <strong>${welcomeTotal}</strong></span>`,
+					);
+				if (wineTotal)
+					chips.push(
+						`<span class="rounded-full bg-rose-100 px-3 py-1.5 text-xs font-bold text-rose-800">🍷 Vinmenu: <strong>${wineTotal}</strong></span>`,
+					);
+				if (pescWineTotal)
+					chips.push(
+						`<span class="rounded-full bg-rose-100 px-3 py-1.5 text-xs font-bold text-rose-800">🐟🍷 Vin/pescetar: <strong>${pescWineTotal}</strong></span>`,
+					);
+				barInfo.innerHTML = chips.join("");
+				barInfo.classList.toggle("hidden", !chips.length);
+			}
+
+			function renderBar() {
+				const { activeOrders, groupedOrders } = groupBarOrders();
+				barCount.textContent = `${groupedOrders.size} ${groupedOrders.size === 1 ? "bord" : "borde"}`;
+				emptyBar.classList.toggle("hidden", activeOrders.length > 0);
+				barOrdersElement.innerHTML = Array.from(groupedOrders.values())
+					.map((g) => renderBarCard(g))
+					.join("");
+				barOrdersElement
+					.querySelectorAll("[data-complete-bar-order]")
+					.forEach((b) => b.addEventListener("click", () => completeBarOrder(b.dataset.completeBarOrder)));
+				barOrdersElement
+					.querySelectorAll("[data-cancel-bar-order]")
+					.forEach((b) => b.addEventListener("click", () => cancelBarOrder(b.dataset.cancelBarOrder)));
+				renderBarSummary();
+				renderBarInfo();
+			}
+
+			function renderBarCard(group) {
+				const table = (tables[selectedSlotKey] && tables[selectedSlotKey][group.tableId]) || emptyTable;
+				const extras = table.extras || {};
+				const infoChips = [];
+				if (toQuantity(extras.welcomeDrinkQuantity) > 0)
+					infoChips.push(
+						`<span class="rounded-full bg-fuchsia-100 px-2 py-1 text-[11px] font-bold text-fuchsia-800">🥂 ${toQuantity(extras.welcomeDrinkQuantity)}</span>`,
+					);
+				if (toQuantity(extras.wineQuantity) > 0)
+					infoChips.push(
+						`<span class="rounded-full bg-rose-100 px-2 py-1 text-[11px] font-bold text-rose-800">🍷 ${toQuantity(extras.wineQuantity)}</span>`,
+					);
+				if (toQuantity(extras.pescetarianWineQuantity) > 0)
+					infoChips.push(
+						`<span class="rounded-full bg-rose-100 px-2 py-1 text-[11px] font-bold text-rose-800">🐟🍷 ${toQuantity(extras.pescetarianWineQuantity)}</span>`,
+					);
+
+				const itemRows = group.items
+					.map(
+						([id, order]) => `<div class="flex items-center justify-between gap-2 rounded-lg bg-violet-50 px-3 py-2 ring-1 ring-violet-200">
+							<div class="min-w-0 flex-1">
+								<p class="truncate text-sm font-bold text-slate-900">${escapeHtml(order.itemName)}</p>
+								<p class="text-xs text-slate-500">${order.quantity} stk${order.categoryName ? ` · ${escapeHtml(order.categoryName)}` : ""}${order.createdAt ? ` · ${minutesSince(order.createdAt)} min` : ""}</p>
+							</div>
+							<div class="flex shrink-0 items-center gap-1.5">
+								<button type="button" data-cancel-bar-order="${id}" class="rounded-md px-1.5 py-0.5 text-xs font-bold text-rose-600 hover:bg-rose-50" aria-label="Annuller">✕</button>
+								<button type="button" data-complete-bar-order="${id}" class="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-slate-700">Klar</button>
+							</div>
+						</div>`,
+					)
+					.join("");
+
+				return `<article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+					<div class="flex items-center justify-between gap-3">
+						<h3 class="font-display text-3xl font-bold text-slate-900">Bord ${escapeHtml(getDisplayNumber(group.tableId))}</h3>
+						${group.room ? `<span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">${escapeHtml(group.room)}</span>` : ""}
+					</div>
+					<div class="mt-5 space-y-2">${itemRows}</div>
+					${infoChips.length ? `<div class="mt-4 flex flex-wrap items-center gap-1.5 border-t border-slate-200 pt-3">${infoChips.join("")}</div>` : ""}
+					${group.note ? `<p class="mt-3 text-sm font-semibold text-slate-600">${escapeHtml(group.note)}</p>` : ""}
+				</article>`;
+			}
+
+			/* ---- Runner ---- */
+
 			function groupRunnerOrders() {
 				const activeOrders = Object.entries(runnerOrders)
 					.filter(([, order]) => order.slot === selectedSlotKey)
@@ -2227,7 +2288,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				return { activeOrders, groupedOrders };
 			}
 
-			// Tegner hele runner-visningen.
 			function renderRunner() {
 				const { activeOrders, groupedOrders } = groupRunnerOrders();
 				runnerCount.textContent = `${groupedOrders.size} ${groupedOrders.size === 1 ? "bord" : "borde"}`;
@@ -2240,7 +2300,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					.forEach((button) => button.addEventListener("click", () => serveRunnerCourse(button.dataset.serveTable, button.dataset.serveCourse)));
 			}
 
-			// HTML for ét bord i runner-køen.
 			function renderRunnerCard(group) {
 				const courseBoxes = Array.from(group.courses.entries())
 					.map(([courseKey, courseOrders]) => renderRunnerCourse(group, courseKey, courseOrders))
@@ -2252,19 +2311,19 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				</article>`;
 			}
 
-			// Én ret i runner-kortet. Bruger samme farver som køkkenkortet (amber=forret,
-			// sky=hovedret, emerald=dessert), så køkken og runner taler samme sprog.
+			// Én ret/drikkevare i runner-kortet.
+			// Farver: forret=amber, hovedret=sky, dessert=emerald, drikkevare=violet.
 			function renderRunnerCourse(group, courseKey, courseOrders) {
 				const firstOrder = courseOrders[0][1];
 				const colors = {
 					starter: "border-amber-300 bg-amber-50 text-amber-950",
 					main: "border-sky-300 bg-sky-50 text-sky-950",
 					dessert: "border-emerald-300 bg-emerald-50 text-emerald-950",
+					drink: "border-violet-300 bg-violet-50 text-violet-950",
 				}[courseKey];
 
 				const totalQuantity = courseOrders.reduce((total, [, order]) => total + toQuantity(order.quantity), 0);
 
-				// Klassisk/pescetar-opdeling vises kun for hovedret (samme regel som i køkkenet).
 				const isMain = courseKey === "main";
 				const pescetarianQuantity = isMain
 					? courseOrders.filter(([, order]) => isPescetarianCourse(order.course)).reduce((total, [, order]) => total + toQuantity(order.quantity), 0)
@@ -2275,27 +2334,28 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						? `<p class="mt-2 text-base font-bold">${pescetarianQuantity} pescetar${regularQuantity ? ` · ${regularQuantity} klassisk` : ""}</p>`
 						: "";
 
-				// Ventetid regnet fra den ældste ordre i retten – runneren skal kunne se,
-				// hvad der har stået klar længst.
 				const waitedMinutes = minutesSince(Math.min(...courseOrders.map(([, order]) => order.createdAt || Date.now())));
 				const waitColors =
 					waitedMinutes >= 10 ? "bg-rose-500 text-white" : waitedMinutes >= 5 ? "bg-yellow-500 text-white" : "bg-white/80 text-slate-700";
 				const waitBadge = `<span class="rounded-full px-2 py-1 text-xs font-bold ${waitColors}">${waitedMinutes} min</span>`;
 
+				// Drikkevarer vises uden "pax" – bruger "stk" i stedet.
+				const unit = courseKey === "drink" ? "stk" : "pax";
+
 				return `<div class="rounded-xl border-2 p-5 ${colors}">
 					<div class="flex flex-wrap items-center justify-between gap-4">
 						<div>
 							<p class="flex items-center gap-2 text-xl font-bold">${escapeHtml(firstOrder.course.replace(/ · pescetarisk/gi, ""))}${waitBadge}</p>
-							<p class="mt-1 text-4xl font-bold">${totalQuantity}<span class="ml-2 text-base font-normal">pax</span></p>
+							<p class="mt-1 text-4xl font-bold">${totalQuantity}<span class="ml-2 text-base font-normal">${unit}</span></p>
 							${paxLine}
 						</div>
-						<button data-serve-course="${escapeHtml(courseKey)}" data-serve-table="${escapeHtml(group.tableId)}" class="min-h-14 w-full rounded-xl bg-slate-900 px-5 py-4 text-lg font-bold text-white shadow-sm transition hover:bg-slate-700 sm:w-auto sm:min-w-32">Kør mad</button>
+						<button data-serve-course="${escapeHtml(courseKey)}" data-serve-table="${escapeHtml(group.tableId)}" class="min-h-14 w-full rounded-xl bg-slate-900 px-5 py-4 text-lg font-bold text-white shadow-sm transition hover:bg-slate-700 sm:w-auto sm:min-w-32">Kør</button>
 					</div>
 				</div>`;
 			}
 
-			// Runneren har båret retten ud: bordets status opdateres til "serveret",
-			// og runner-ordrerne for samme ret ryddes automatisk af applyTableStatus.
+			// Runneren har båret retten/drikkevaren ud: bordets status opdateres
+			// (kun for madretter), og ordrerne ryddes fra runner-køen.
 			async function serveRunnerCourse(tableId, courseKey) {
 				const orderIds = Object.entries(runnerOrders)
 					.filter(
@@ -2306,20 +2366,21 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 
 				const firstOrder = runnerOrders[orderIds[0]];
 				const slot = firstOrder.slot;
-				const table = (tables[slot] && tables[slot][firstOrder.tableId]) || emptyTable;
 				const status = servedStatusByCourse[courseKey];
-				if (!status) return;
 
-				await applyTableStatus(firstOrder.tableId, status, { guests: table.guests, note: table.note, extras: table.extras }, slot);
-				// applyTableStatus kalder clearRunnerOrdersFor, så listen opdateres automatisk.
+				if (status) {
+					const table = (tables[slot] && tables[slot][firstOrder.tableId]) || emptyTable;
+					await applyTableStatus(firstOrder.tableId, status, { guests: table.guests, note: table.note, extras: table.extras }, slot);
+				} else {
+					// Drikkevare – ingen status-ændring, bare ryd runner-ordren.
+					await clearRunnerOrdersFor(firstOrder.tableId, slot, courseKey);
+				}
 			}
 
 			/* ----------------------------------------------------------------------------
-						   11. KØKKEN- OG RUNNER-ORDRER
+						   11. ORDRER (køkken, bar, runner)
 						---------------------------------------------------------------------------- */
 
-			// Opretter én bestilling i køkkenkøen for hovedret eller dessert.
-			// SPÆRRING: antal på 0 (eller ugyldigt) sendes aldrig afsted.
 			async function createKitchenOrder(tableId, quantity, note, course, readyStatus = "") {
 				if (!(Number(quantity) > 0)) return;
 
@@ -2346,14 +2407,71 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				}
 			}
 
-			// Sender en ret afsted som op til to køkken-ordrer: klassisk og pescetarisk.
 			async function createCourseOrders({ tableId, course, readyStatus, note, guests, pescetarianQuantity }) {
 				const regularQuantity = Math.max(0, guests - pescetarianQuantity);
 				await createKitchenOrder(tableId, regularQuantity, note, course, readyStatus);
 				await createKitchenOrder(tableId, pescetarianQuantity, note, `${course} · pescetarisk`, readyStatus);
 			}
 
-			// Opretter en runner-ordre: en ret der er klar til at blive båret ud til bordet.
+			// Opretter en bar-ordre: ekstra drikkevare der skal laves.
+			async function createBarOrder(tableId, itemId, itemName, categoryId, categoryName, quantity, note, slotOverride = null) {
+				const slot = slotOverride || selectedSlotKey;
+				if (!(Number(quantity) > 0)) return;
+
+				const timestamp = Date.now();
+				const order = {
+					tableId: Number(tableId),
+					slot,
+					room: getRoomName(tableId),
+					itemId,
+					itemName,
+					categoryId,
+					categoryName,
+					quantity,
+					note: note || "",
+					createdAt: timestamp,
+				};
+
+				if (window.database) {
+					const orderId = push(ref(window.database, "barOrders")).key;
+					await update(ref(window.database), { [`barOrders/${orderId}`]: order });
+				} else {
+					barOrders[`demo-bar-${timestamp}-${Math.random().toString(36).slice(2, 6)}`] = order;
+					if (activeView === "bar") renderBar();
+				}
+			}
+
+			// Baren har lavet drikkevaren: rydder bar-ordren og opretter en runner-ordre,
+			// så runneren kan bære den ud til bordet.
+			async function completeBarOrder(orderId) {
+				const order = barOrders[orderId];
+				if (!order) return;
+				const slot = order.slot || selectedSlotKey;
+
+				delete barOrders[orderId];
+				if (activeView === "bar") renderBar();
+				renderTimeSlotTabs();
+
+				if (window.database) {
+					await update(ref(window.database), { [`barOrders/${orderId}`]: null });
+				}
+
+				await createRunnerOrder(order.tableId, `Drikkevare · ${order.itemName}`, order.quantity, order.note, slot);
+			}
+
+			// Annullerer en bar-ordre (fx fejltastning).
+			async function cancelBarOrder(orderId) {
+				const order = barOrders[orderId];
+				if (!order) return;
+				if (!confirm(`Annuller ${order.itemName} × ${order.quantity} til bord ${getDisplayNumber(order.tableId)}?`)) return;
+				delete barOrders[orderId];
+				if (activeView === "bar") renderBar();
+				renderTimeSlotTabs();
+				if (window.database) {
+					await update(ref(window.database), { [`barOrders/${orderId}`]: null });
+				}
+			}
+
 			async function createRunnerOrder(tableId, course, quantity, note, slotOverride = null) {
 				const slot = slotOverride || selectedSlotKey;
 				if (!(Number(quantity) > 0)) return;
@@ -2378,7 +2496,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				}
 			}
 
-			// Fjerner ventende runner-ordrer for et bord. courseKey udelades = alle retter.
 			async function clearRunnerOrdersFor(tableId, slot, courseKey = null) {
 				const changes = {};
 				Object.entries(runnerOrders).forEach(([orderId, order]) => {
@@ -2392,6 +2509,21 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				if (!Object.keys(changes).length) return;
 				if (window.database) await update(ref(window.database), changes);
 				if (activeView === "runner") renderRunner();
+			}
+
+			// Fjerner ventende bar-ordrer for et bord (bruges når tjeneren selv tager dem,
+			// fx ved "Drikkevarer serveret" eller når bordet afsluttes).
+			async function clearBarOrdersFor(tableId, slot) {
+				const changes = {};
+				Object.entries(barOrders).forEach(([orderId, order]) => {
+					if (order.slot === slot && String(order.tableId) === String(tableId)) {
+						delete barOrders[orderId];
+						changes[`barOrders/${orderId}`] = null;
+					}
+				});
+				if (!Object.keys(changes).length) return;
+				if (window.database) await update(ref(window.database), changes);
+				if (activeView === "bar") renderBar();
 			}
 
 			/* ----------------------------------------------------------------------------
@@ -2464,8 +2596,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					wineQuantity: toQuantity(field("wineQuantity")),
 					pescetarianWineQuantity: toQuantity(field("pescetarianWineQuantity")),
 					welcomeDrinkQuantity: toQuantity(field("welcomeDrinkQuantity")),
-					// Booking-redigeringen rører kun bookingfelterne – de indtastede
-					// drikkevarer skal ikke forsvinde, når man retter fx antal gæster.
 					drinks: getActiveTable().extras?.drinks || {},
 				};
 				const name = field("name").trim();
@@ -2479,6 +2609,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				updateGuestGuard();
 				renderTables();
 				if (activeView === "kitchen") renderKitchen();
+				if (activeView === "bar") renderBar();
 				bookingEditMessage.textContent = "Gemmer...";
 
 				try {
@@ -2540,6 +2671,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				if (!activeTableId) return;
 				const table = getActiveTable();
 				const drinks = getDrinks(table);
+				// Snapshot: vi skal kunne se hvad der er NYT, når Færdig trykkes.
+				barPickerSnapshot = JSON.parse(JSON.stringify(drinks));
 				const categoriesWithSelection = drinkCategories
 					.filter((category) => (drinkCatalog[category.id] || []).length > 0)
 					.map((category) => category.id)
@@ -2549,18 +2682,47 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				drinksPickerModal.classList.remove("hidden");
 				drinksPickerModal.classList.add("flex");
 			}
-			function closeDrinksPicker() {
+			async function closeDrinksPicker() {
 				drinksPickerModal.classList.add("hidden");
 				drinksPickerModal.classList.remove("flex");
+				await flushDrinkOrdersToBar();
 				renderDrinksSummary(getActiveTable());
 			}
 
-			// Kompakt +/- stepper til én linje.
+			// Sammenligner med snapshot fra da varevælgeren blev åbnet, og sender
+			// alt NYT (nye varer og øgede antal) til baren som bar-ordrer.
+			async function flushDrinkOrdersToBar() {
+				if (!activeTableId || !barPickerSnapshot) return;
+				const table = getActiveTable();
+				const currentDrinks = getDrinks(table);
+				const ordersToCreate = [];
+
+				Object.entries(currentDrinks).forEach(([categoryId, items]) => {
+					Object.entries(items || {}).forEach(([itemId, count]) => {
+						const currentCount = toQuantity(count);
+						const oldCount = toQuantity(barPickerSnapshot[categoryId]?.[itemId]);
+						const delta = currentCount - oldCount;
+						if (delta > 0) {
+							const category = drinkCategories.find((c) => c.id === categoryId);
+							const categoryName = category?.name || categoryId;
+							const itemName =
+								itemId === SELF_ITEM_ID ? categoryName : (drinkCatalog[categoryId] || []).find((c) => c.id === itemId)?.name || "Ukendt vare";
+							ordersToCreate.push({ categoryId, categoryName, itemId, itemName, quantity: delta });
+						}
+					});
+				});
+
+				barPickerSnapshot = null;
+
+				for (const order of ordersToCreate) {
+					await createBarOrder(activeTableId, order.itemId, order.itemName, order.categoryId, order.categoryName, order.quantity, table.note);
+				}
+			}
+
 			function renderStepperRow(label, count, decrementKey, incrementKey) {
 				return /*html*/ `<div class="flex items-center justify-between gap-1.5 rounded-md bg-white px-2 py-1 ring-1 ring-slate-200"><span class="min-w-0 truncate text-xs font-semibold text-slate-700">${escapeHtml(label)}</span><div class="flex shrink-0 items-center gap-1"><button type="button" data-drink-decrement="${decrementKey}" class="flex h-6 w-6 items-center justify-center rounded bg-slate-100 text-xs font-bold text-slate-600 transition hover:bg-slate-200" aria-label="Fjern en ${escapeHtml(label)}">−</button><span class="w-4 text-center text-xs font-bold text-slate-900">${count}</span><button type="button" data-drink-increment="${incrementKey}" class="flex h-6 w-6 items-center justify-center rounded bg-slate-900 text-xs font-bold text-white transition hover:bg-slate-700" aria-label="Tilføj en ${escapeHtml(label)}">+</button></div></div>`;
 			}
 
-			// Tegner kategorierne som en tæt harmonika.
 			function renderDrinksPickerBody(table) {
 				const drinks = getDrinks(table);
 				if (!drinkCategories.length) {
@@ -2571,7 +2733,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					.map((category) => {
 						const items = drinkCatalog[category.id] || [];
 
-						// Ingen konkrete varer: kategorien er selv den enestående vare.
 						if (!items.length) {
 							const count = toQuantity((drinks[category.id] || {})[SELF_ITEM_ID]);
 							const key = `${category.id}:${SELF_ITEM_ID}`;
@@ -2774,7 +2935,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				);
 			}
 
-			// Bytter plads på to nabo-elementer i et array; bruges til alle op/ned-pile.
 			function moveArrayItem(array, index, direction) {
 				const targetIndex = index + (direction === "up" ? -1 : 1);
 				if (targetIndex < 0 || targetIndex >= array.length) return array;
@@ -2861,8 +3021,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				activeTableId = null;
 			}
 
-			// SPÆRRING (synlig del): har bookingen 0 gæster, deaktiveres alle statusknapper
-			// undtagen "Gør bordet ledigt".
 			function updateGuestGuard() {
 				const hasGuests = toQuantity(getActiveTable().guests) > 0;
 				document.querySelectorAll(".status-button").forEach((button) => {
@@ -2873,7 +3031,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				});
 			}
 
-			// Fremhæver den knap, der er det næste logiske trin, og dæmper de øvrige.
 			function updateStatusButtons(currentStatus) {
 				const nextStatus = getNextStatus(currentStatus);
 				document.querySelectorAll(".status-button").forEach((button) => {
@@ -2896,7 +3053,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			// "Gem"-knappen: gemmer kun noten. Noten opdateres også på bordets ventende
-			// køkken- og runner-ordrer.
+			// køkken-, bar- og runner-ordrer.
 			async function saveNote() {
 				if (!activeTableId) return;
 				const tableId = activeTableId;
@@ -2913,6 +3070,12 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						changes[`kitchenOrders/${orderId}/note`] = note;
 					}
 				});
+				Object.entries(barOrders).forEach(([orderId, order]) => {
+					if (order.slot === slot && Number(order.tableId) === Number(tableId)) {
+						barOrders[orderId] = { ...order, note };
+						changes[`barOrders/${orderId}/note`] = note;
+					}
+				});
 				Object.entries(runnerOrders).forEach(([orderId, order]) => {
 					if (order.slot === slot && Number(order.tableId) === Number(tableId)) {
 						runnerOrders[orderId] = { ...order, note };
@@ -2922,6 +3085,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 
 				renderTables();
 				renderKitchen();
+				renderBar();
 				renderRunner();
 				saveMessage.textContent = "Gemmer note...";
 				try {
@@ -2936,7 +3100,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 
 			// Rydder bordet: status og timere nulstilles, men navn/pax/menuvalg fra
 			// bookingen bevares. Bordet flyttes til "Afsluttede borde" (completedAt),
-			// og dets ventende køkken- og runner-ordrer fjernes helt.
+			// og dets ventende køkken-, bar- og runner-ordrer fjernes helt.
 			async function clearTable(tableId) {
 				const slot = selectedSlotKey;
 				const completedAt = Date.now();
@@ -2954,6 +3118,13 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					}
 				});
 
+				Object.entries(barOrders).forEach(([orderId, order]) => {
+					if (order.slot === slot && Number(order.tableId) === Number(tableId)) {
+						delete barOrders[orderId];
+						changes[`barOrders/${orderId}`] = null;
+					}
+				});
+
 				Object.entries(runnerOrders).forEach(([orderId, order]) => {
 					if (order.slot === slot && Number(order.tableId) === Number(tableId)) {
 						delete runnerOrders[orderId];
@@ -2965,10 +3136,10 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				if (window.database) await update(ref(window.database), changes);
 				renderTables();
 				renderKitchen();
+				renderBar();
 				renderRunner();
 			}
 
-			// Genåbner et afsluttet bord.
 			async function reopenTable(tableId) {
 				const slot = selectedSlotKey;
 				const current = tables[slot][tableId];
@@ -2978,8 +3149,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				if (window.database) await update(ref(window.database), { [`tables/${slot}/${tableId}/completedAt`]: null });
 			}
 
-			// Fælles logik for enhver statusændring: gemmer bordet, udløser nye
-			// ordrer (køkken eller runner), og rydder ventende runner-ordrer ved "serveret".
+			// Fælles logik for enhver statusændring.
 			async function applyTableStatus(tableId, status, { guests, note, extras }, slotOverride) {
 				const slot = slotOverride || selectedSlotKey;
 				const previousTable = (tables[slot] && tables[slot][tableId]) || emptyTable;
@@ -2990,13 +3160,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					note: note || "",
 					extras: { ...(extras || previousTable.extras || {}) },
 				};
-				// Velkomstdrinken er serveret, når drikkevarerne er kørt ud.
 				if (status === "drinks_served") values.extras.welcomeDrinkQuantity = 0;
 
-				// TIMER 1: "seatedAt" sættes første gang bordet markeres ankommet og bevares
-				// uændret resten af måltidet.
-				// TIMER 2: "readySince" hører kun til mens en ret rent faktisk står og venter
-				// på at blive kørt ud.
 				values.seatedAt = status === "empty" ? null : previousTable.seatedAt || Date.now();
 				values.readySince = null;
 
@@ -3023,22 +3188,20 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					});
 				}
 
-				// Når drikkevarerne er serveret, oprettes en runner-ordre på forretten –
-				// forretten laves samlet og skal blot bæres ud til bordet.
+				// Når drikkevarerne er serveret:
+				// 1) ryd ventende bar-ordrer (tjeneren har selv taget dem)
+				// 2) opret en runner-ordre på forretten
 				if (status === "drinks_served") {
+					await clearBarOrdersFor(tableId, slot);
 					await createRunnerOrder(tableId, "Forret", values.guests, values.note, slot);
 				}
 
-				// Når bordet når en "serveret"-status, ryddes ventende runner-ordrer for
-				// samme ret (uanset om det skete via denne funktion eller runner-siden).
 				const servedCourseKey = courseKeyByServedStatus[status];
 				if (servedCourseKey) await clearRunnerOrdersFor(tableId, slot, servedCourseKey);
 
 				return values;
 			}
 
-			// Gemmer bordet med en ny status. Gæster/tilvalg kommer fra bookingen.
-			// SPÆRRING (logisk del): alt andet end "gør bordet ledigt" kræver mindst én gæst.
 			async function saveTable(status) {
 				if (!activeTableId) return;
 				const tableId = activeTableId;
@@ -3060,18 +3223,16 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				}
 			}
 
-			// Genvej: klik på den blinkende prik på et bordkort. Går ét skridt frem.
 			async function markCourseServed(tableId) {
 				const slot = selectedSlotKey;
 				const table = tables[slot] && tables[slot][tableId];
-				const nextStatus =
-					table && nextStatusByCourse[table.status] !== undefined ? nextStatusByStatus[table.status] : table && nextStatusByStatus[table.status];
+				const nextStatus = table && nextStatusByStatus[table.status];
 				if (!table || !nextStatus) return;
 				try {
 					await applyTableStatus(tableId, nextStatus, { guests: table.guests, note: table.note, extras: table.extras });
 				} catch (error) {
 					console.error(error);
-					renderTables(); // gendan kortet, hvis noget gik galt undervejs
+					renderTables();
 				}
 			}
 
@@ -3079,7 +3240,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						   13. EVENT-BINDINGER
 						---------------------------------------------------------------------------- */
 
-			// Statusknapperne i bord-modalen.
 			document.querySelectorAll(".status-button").forEach((button) =>
 				button.addEventListener("click", () => {
 					const status = button.dataset.status;
@@ -3097,7 +3257,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				}),
 			);
 
-			// Modal-knapper og lukning (klik på baggrunden eller Escape).
 			document.querySelector("#closeModal").addEventListener("click", closeModal);
 			document.querySelector("#closeModalBottom").addEventListener("click", closeModal);
 			saveNoteButton.addEventListener("click", saveNote);
@@ -3119,7 +3278,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				else closeModal();
 			});
 
-			// Admin-menuen (Opsætning + Importér) i toppen.
+			// Admin-menuen i toppen.
 			const adminMenuToggle = document.querySelector("#adminMenuToggle");
 			const adminMenu = document.querySelector("#adminMenu");
 			function closeAdminMenu() {
@@ -3186,32 +3345,40 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			document.querySelector("#saveImport").addEventListener("click", saveImport);
 			document.querySelector("#clearAllReservations").addEventListener("click", clearAllReservations);
 
-			// Skift mellem bordoversigt, køkken og runner via den segmenterede visningsvælger.
+			// Skift mellem bordoversigt, køkken, bar og runner.
 			document.querySelector("#tablesToggle").addEventListener("click", () => setView("tables"));
 			document.querySelector("#kitchenToggle").addEventListener("click", () => setView("kitchen"));
+			document.querySelector("#barToggle").addEventListener("click", () => setView("bar"));
 			document.querySelector("#runnerToggle").addEventListener("click", () => setView("runner"));
 
 			/* ----------------------------------------------------------------------------
 						   14. OPSTART + FIREBASE-LYTTERE
 						---------------------------------------------------------------------------- */
 
-			// Første tegning med standarddata, så skærmen er brugbar med det samme.
 			renderTimeSlotTabs();
 			renderTables();
 			renderKitchen();
+			renderBar();
 			renderRunner();
-			setView(window.location.hash === "#kokken" ? "kitchen" : window.location.hash === "#runner" ? "runner" : "tables");
+			setView(
+				window.location.hash === "#kokken"
+					? "kitchen"
+					: window.location.hash === "#bar"
+						? "bar"
+						: window.location.hash === "#runner"
+							? "runner"
+							: "tables",
+			);
 
 			// Ventetiderne i køerne og de to timere på bordkortene tikker videre af sig selv.
-			// Fanerne gentegnes også, så "Nu"-markeringen flytter sig, når klokken passerer et nyt hold.
 			setInterval(() => {
 				renderTimeSlotTabs();
 				renderTables();
 				if (activeView === "kitchen") renderKitchen();
+				if (activeView === "bar") renderBar();
 				if (activeView === "runner") renderRunner();
 			}, 10000);
 
-			// Er der rigtige nøgler i firebaseConfig, eller kører vi demo?
 			const hasFirebaseConfig = !firebaseConfig.apiKey.startsWith("INDSAET") && !firebaseConfig.projectId.startsWith("DIT-");
 
 			if (hasFirebaseConfig) {
@@ -3219,7 +3386,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					const app = initializeApp(firebaseConfig);
 					window.database = getDatabase(app);
 
-					// Borde: opdaterer oversigten, så snart en anden enhed ændrer noget.
 					onValue(ref(window.database, "tables"), (snapshot) => {
 						const value = snapshot.val() || {};
 						tables = Object.fromEntries(TIME_SLOTS.map((slot) => [slotKey(slot), value[slotKey(slot)] || {}]));
@@ -3233,13 +3399,13 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						renderTimeSlotTabs();
 						renderTables();
 						if (activeView === "kitchen") renderKitchen();
+						if (activeView === "bar") renderBar();
 						if (activeView === "runner") renderRunner();
 						if (!reservationsModal.classList.contains("hidden")) renderReservationsList();
 						connectionDot.className = "status-dot h-3 w-3 rounded-full bg-emerald-500";
 						connectionLabel.textContent = "Live";
 					});
 
-					// Lokaleopsætning: navne og farver.
 					onValue(ref(window.database, "settings/rooms"), (snapshot) => {
 						const savedRooms = snapshot.val();
 						if (!Array.isArray(savedRooms) || !savedRooms.length) return;
@@ -3253,22 +3419,20 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						renderTables();
 					});
 
-					// Hvilket lokale hvert bordnummer hører til.
 					onValue(ref(window.database, "settings/tableRooms"), (snapshot) => {
 						tableRoomAssignments = snapshot.val() || {};
 						renderTables();
 					});
 
-					// Bordskilt-numre.
 					onValue(ref(window.database, "settings/tableNumbers"), (snapshot) => {
 						tableDisplayNumbers = snapshot.val() || {};
 						renderTables();
 						if (activeView === "kitchen") renderKitchen();
+						if (activeView === "bar") renderBar();
 						if (activeView === "runner") renderRunner();
 						if (!reservationsModal.classList.contains("hidden")) renderReservationsList();
 					});
 
-					// Drikke-kategorierne selv.
 					onValue(ref(window.database, "settings/drinkCategories"), (snapshot) => {
 						const savedCategories = snapshot.val();
 						if (!Array.isArray(savedCategories) || !savedCategories.length) return;
@@ -3282,7 +3446,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						renderTables();
 					});
 
-					// Drikkekortet: konkrete varer pr. overkategori.
 					onValue(ref(window.database, "settings/drinkCatalog"), (snapshot) => {
 						drinkCatalog = snapshot.val() || {};
 						if (!drinkCatalogModal.classList.contains("hidden")) renderDrinkCatalogEditor();
@@ -3290,14 +3453,18 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						if (activeTableId) renderDrinksSummary(getActiveTable());
 					});
 
-					// Køkkenkøen (hovedret/dessert).
 					onValue(ref(window.database, "kitchenOrders"), (snapshot) => {
 						kitchenOrders = snapshot.val() || {};
 						renderTimeSlotTabs();
 						if (activeView === "kitchen") renderKitchen();
 					});
 
-					// Runner-køen (forret/hovedret/dessert klar til at blive båret ud).
+					onValue(ref(window.database, "barOrders"), (snapshot) => {
+						barOrders = snapshot.val() || {};
+						renderTimeSlotTabs();
+						if (activeView === "bar") renderBar();
+					});
+
 					onValue(ref(window.database, "runnerOrders"), (snapshot) => {
 						runnerOrders = snapshot.val() || {};
 						renderTimeSlotTabs();
