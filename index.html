@@ -423,13 +423,17 @@
 						<p class="mt-1.5 text-[11px] text-slate-400">Nye drikkevarer sendes automatisk til baren, når du trykker "Færdig" i varevælgeren.</p>
 					</div>
 					<div>
-						<label for="tableNote" class="mb-2 block text-sm font-bold text-slate-700">Note</label
-						><textarea
+						<label for="tableNote" class="mb-1 block text-sm font-bold text-slate-700">Note</label>
+						<p class="mb-2 text-xs text-slate-500">
+							Skriv hvem noten er til, så den rigtige ser den. Start med <strong>Tjener</strong>, <strong>Køkken</strong>, <strong>Bar</strong> eller
+							<strong>Runner</strong> – fx "Køkken: glutenallergi" eller "Bar: ekstra is".
+						</p>
+						<textarea
 							id="tableNote"
 							maxlength="300"
 							rows="3"
 							class="w-full resize-y rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm outline-none transition focus:border-rose-500 focus:ring-4 focus:ring-rose-100"
-							placeholder="F.eks. glutenallergi"></textarea>
+							placeholder="Køkken: glutenallergi"></textarea>
 					</div>
 					<div class="grid grid-cols-2 gap-2">
 						<button
@@ -1578,14 +1582,31 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				}
 			}
 
+			// Nulstiller status/timere for alle borde på alle hold OG rydder ekstra
+			// drikkevarer og note (så en ny dag starter helt rent). Bookingens navn,
+			// pax og menuvalg bevares – de kommer fra importen. Alle tre køer ryddes.
 			async function resetAllTables() {
-				if (!confirm("Nulstil status til 'Ikke ankommet' for ALLE borde på ALLE hold? Kun status, timere og alle køer ryddes.")) return;
+				if (
+					!confirm("Nulstil status til 'Ikke ankommet' for ALLE borde på ALLE hold? Status, timere, ekstra drikkevarer, noter og alle køer ryddes.")
+				)
+					return;
 				const nextTables = {};
 				TIME_SLOTS.forEach((slot) => {
 					const key = slotKey(slot);
 					const slotTables = tables[key] || {};
 					nextTables[key] = Object.fromEntries(
-						Object.entries(slotTables).map(([id, table]) => [id, { ...table, status: "empty", seatedAt: null, readySince: null, completedAt: null }]),
+						Object.entries(slotTables).map(([id, table]) => [
+							id,
+							{
+								...table,
+								status: "empty",
+								seatedAt: null,
+								readySince: null,
+								completedAt: null,
+								note: "",
+								extras: { ...(table.extras || {}), drinks: {} },
+							},
+						]),
 					);
 				});
 				try {
@@ -1599,7 +1620,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					renderKitchen();
 					renderBar();
 					renderRunner();
-					settingsMessage.textContent = "Status nulstillet for alle borde";
+					settingsMessage.textContent = "Status, drikkevarer og noter nulstillet for alle borde";
 				} catch (error) {
 					console.error(error);
 					settingsMessage.textContent = "Kunne ikke nulstille bordene.";
