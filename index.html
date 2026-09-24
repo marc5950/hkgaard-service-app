@@ -541,11 +541,12 @@
 					<input
 						id="reservationsSearch"
 						type="text"
-						placeholder="Søg efter navn..."
+						placeholder="Søg efter navn (søger i alle hold)..."
 						class="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm outline-none transition focus:border-rose-500 focus:ring-4 focus:ring-rose-100" />
+					<div id="reservationsSlotFilter" class="flex flex-wrap gap-1.5" aria-label="Filtrer efter hold"></div>
 					<p id="reservationsMessage" class="min-h-4 text-xs font-bold text-rose-700" role="status"></p>
-					<!-- Alle hold på tværs, alfabetisk – så man kan finde en gæst uanset
-					     hvilket faneblad man selv står på lige nu. -->
+					<!-- Aktive reservationer for det valgte hold (eller alle hold ved søgning).
+					     Afsluttede borde samles nederst med en Genåbn-knap. -->
 					<div id="reservationsList" class="max-h-[60vh] space-y-1.5 overflow-y-auto"></div>
 				</div>
 			</div>
@@ -835,6 +836,9 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			let currentRoomGroups = []; // genberegnes i renderTables(): [{ id, name, accent, line, nav, tableIds }]
 			const collapsedRooms = new Set(); // id'er på lokaler, der er klappet sammen
 
+			// Filter i "Find en reservation". null = alle hold, ellers en slot-nøgle som "1730".
+			let reservationsSlotFilter = null;
+
 			/* ----------------------------------------------------------------------------
 						   4. DOM-REFERENCER
 						---------------------------------------------------------------------------- */
@@ -883,6 +887,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			const reservationsSearch = document.querySelector("#reservationsSearch");
 			const reservationsMessage = document.querySelector("#reservationsMessage");
 			const reservationsList = document.querySelector("#reservationsList");
+			const reservationsSlotFilterBar = document.querySelector("#reservationsSlotFilter");
 			const tableNote = document.querySelector("#tableNote");
 			const saveNoteButton = document.querySelector("#saveNote");
 			const saveMessage = document.querySelector("#saveMessage");
@@ -984,10 +989,12 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 
 			// Én række pr. booket bord, uanset hold – kun borde med et navn tæller som
 			// en reservation (et "empty"-bord uden navn er bare et ledigt bordnummer).
-			function getAllReservations() {
+			// slotFilter = null betyder "tag alle hold med".
+			function getAllReservations({ slotFilter = null } = {}) {
 				const entries = [];
 				TIME_SLOTS.forEach((slot) => {
 					const key = slotKey(slot);
+					if (slotFilter && key !== slotFilter) return;
 					Object.entries(tables[key] || {}).forEach(([tableId, table]) => {
 						if (!table || !table.name) return;
 						entries.push({
@@ -999,6 +1006,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 							name: table.name,
 							guests: table.guests,
 							status: table.status || "empty",
+							completedAt: table.completedAt || null,
 						});
 					});
 				});
@@ -1009,6 +1017,9 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			function openReservations() {
 				reservationsSearch.value = "";
 				reservationsMessage.textContent = "";
+				// Som standard: kun det hold man selv står på.
+				reservationsSlotFilter = selectedSlotKey;
+				renderReservationsSlotFilter();
 				renderReservationsList();
 				reservationsModal.classList.remove("hidden");
 				reservationsModal.classList.add("flex");
@@ -1018,43 +1029,108 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				reservationsModal.classList.remove("flex");
 			}
 
-			// Tegner listen, filtreret på søgefeltet. Et "Ankommet"-bord får i stedet et
-			// statusmærke, så man kan se, at det allerede er tjekket ind.
+			// Filterbjælken øverst i reservations-modalen: "Alle hold" + ét faneblad pr. hold.
+			function renderReservationsSlotFilter() {
+				const buttons = [{ key: "", label: "Alle hold" }, ...TIME_SLOTS.map((slot) => ({ key: slotKey(slot), label: slot }))];
+				reservationsSlotFilterBar.innerHTML = buttons
+					.map(({ key, label }) => {
+						const isActive = (reservationsSlotFilter || "") === key;
+						return `<button type="button" data-slot-filter="${key}" class="rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+							isActive ? "bg-slate-900 text-white" : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+						}">${label}</button>`;
+					})
+					.join("");
+				reservationsSlotFilterBar.querySelectorAll("[data-slot-filter]").forEach((button) =>
+					button.addEventListener("click", () => {
+						reservationsSlotFilter = button.dataset.slotFilter || null;
+						renderReservationsSlotFilter();
+						renderReservationsList();
+					}),
+				);
+			}
+
+			// Tegner listen. Aktive reservationer øverst, afsluttede borde samlet nederst.
+			// Når man skriver i søgefeltet, søges der på tværs af ALLE hold (filteret
+			// ignoreres), så man altid kan finde en gæst uanset hvilket hold, man kigger på.
 			function renderReservationsList() {
 				const query = reservationsSearch.value.trim().toLowerCase();
-				const entries = getAllReservations().filter((entry) => !query || entry.name.toLowerCase().includes(query));
+				const isSearching = query.length > 0;
+				const effectiveFilter = isSearching ? null : reservationsSlotFilter;
 
-				if (!entries.length) {
-					reservationsList.innerHTML = `<p class="py-6 text-center text-sm text-slate-400">${query ? "Ingen reservationer matcher søgningen." : "Ingen reservationer importeret endnu."}</p>`;
+				const entries = getAllReservations({ slotFilter: effectiveFilter }).filter((entry) => !query || entry.name.toLowerCase().includes(query));
+				const activeEntries = entries.filter((entry) => !entry.completedAt);
+				const finishedEntries = entries.filter((entry) => entry.completedAt);
+
+				if (!activeEntries.length && !finishedEntries.length) {
+					reservationsList.innerHTML = `<p class="py-6 text-center text-sm text-slate-400">${
+						query ? "Ingen reservationer matcher søgningen." : "Ingen reservationer importeret endnu for dette hold."
+					}</p>`;
 					return;
 				}
 
-				reservationsList.innerHTML = entries
-					.map((entry) => {
-						const status = statuses[entry.status] || statuses.empty;
-						const action =
-							entry.status === "empty"
-								? `<button type="button" data-mark-arrived="${entry.slot}:${entry.tableId}" class="shrink-0 rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs font-bold text-white transition hover:bg-rose-700">Ankommet</button>`
-								: `<span class="shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${status.badge}">${status.label}</span>`;
-						return /*html*/ `<div class="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2">
-										<div class="min-w-0 flex-1">
-											<p class="truncate text-sm font-bold text-slate-800">${escapeHtml(entry.name)}</p>
-											<p class="truncate text-xs text-slate-500">${escapeHtml(entry.slotLabel)} · ${escapeHtml(entry.roomName || "Intet lokale")} · Bord ${escapeHtml(String(entry.displayNumber))} · ${toQuantity(entry.guests)} pax</p>
-										</div>
-										<div class="flex shrink-0 items-center gap-1.5">
-											${action}
-											<button type="button" data-open-table="${entry.slot}:${entry.tableId}" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-300 text-sm transition hover:bg-slate-50" aria-label="Åbn bord ${escapeHtml(String(entry.displayNumber))}" title="Åbn bord">🧾</button>
-										</div>
-									</div>`;
-					})
-					.join("");
+				let html = "";
+				if (activeEntries.length) {
+					html += activeEntries.map((entry) => renderReservationRow(entry)).join("");
+				} else {
+					html += `<p class="py-3 text-center text-xs text-slate-400">Ingen aktive reservationer.</p>`;
+				}
 
+				if (finishedEntries.length) {
+					html += `<div class="mt-3 border-t border-slate-200 pt-3">
+						<p class="mb-1.5 text-xs font-bold uppercase tracking-wide text-slate-400">Afsluttede borde (${finishedEntries.length})</p>
+						<div class="space-y-1.5">${finishedEntries.map((entry) => renderReservationRow(entry, true)).join("")}</div>
+					</div>`;
+				}
+
+				reservationsList.innerHTML = html;
 				reservationsList
 					.querySelectorAll("[data-mark-arrived]")
 					.forEach((button) => button.addEventListener("click", () => markReservationArrived(button.dataset.markArrived)));
 				reservationsList
 					.querySelectorAll("[data-open-table]")
 					.forEach((button) => button.addEventListener("click", () => openReservationTable(button.dataset.openTable)));
+				reservationsList
+					.querySelectorAll("[data-reopen-reservation]")
+					.forEach((button) => button.addEventListener("click", () => reopenReservation(button.dataset.reopenReservation)));
+			}
+
+			// Én række i reservationslisten. isFinished rykker rækken visuelt ned (grå)
+			// og bytter "Ankommet"-knappen ud med en "Genåbn"-knap.
+			function renderReservationRow(entry, isFinished = false) {
+				const status = statuses[entry.status] || statuses.empty;
+				let action;
+				if (isFinished) {
+					action = `<button type="button" data-reopen-reservation="${entry.slot}:${entry.tableId}" class="shrink-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50">Genåbn</button>`;
+				} else if (entry.status === "empty") {
+					action = `<button type="button" data-mark-arrived="${entry.slot}:${entry.tableId}" class="shrink-0 rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs font-bold text-white transition hover:bg-rose-700">Ankommet</button>`;
+				} else {
+					action = `<span class="shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${status.badge}">${status.label}</span>`;
+				}
+				return /*html*/ `<div class="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2 ${
+					isFinished ? "bg-slate-50 opacity-75" : ""
+				}">
+					<div class="min-w-0 flex-1">
+						<p class="truncate text-sm font-bold text-slate-800">${escapeHtml(entry.name)}</p>
+						<p class="truncate text-xs text-slate-500">${escapeHtml(entry.slotLabel)} · ${escapeHtml(entry.roomName || "Intet lokale")} · Bord ${escapeHtml(String(entry.displayNumber))} · ${toQuantity(entry.guests)} pax</p>
+					</div>
+					<div class="flex shrink-0 items-center gap-1.5">
+						${action}
+						<button type="button" data-open-table="${entry.slot}:${entry.tableId}" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-300 text-sm transition hover:bg-slate-50" aria-label="Åbn bord ${escapeHtml(String(entry.displayNumber))}" title="Åbn bord">🧾</button>
+					</div>
+				</div>`;
+			}
+
+			// Genåbner et afsluttet bord direkte fra reservationslisten (samme effekt som
+			// "Genåbn" på bordoversigten, blot uden at skulle skifte hold først).
+			async function reopenReservation(key) {
+				const [slot, tableId] = key.split(":");
+				const table = tables[slot] && tables[slot][tableId];
+				if (!table) return;
+				tables[slot] = { ...tables[slot], [tableId]: { ...table, completedAt: null } };
+				if (window.database) await update(ref(window.database), { [`tables/${slot}/${tableId}/completedAt`]: null });
+				if (slot === selectedSlotKey) renderTables();
+				renderTimeSlotTabs();
+				renderReservationsList();
 			}
 
 			// Markerer bordet som "Ankommet" direkte fra listen, uanset hvilket hold det
@@ -2899,6 +2975,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						renderTimeSlotTabs();
 						renderTables();
 						if (activeView === "kitchen") renderKitchen();
+						if (!reservationsModal.classList.contains("hidden")) renderReservationsList();
 						connectionDot.className = "status-dot h-3 w-3 rounded-full bg-emerald-500";
 						connectionLabel.textContent = "Live";
 					});
@@ -2928,6 +3005,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						tableDisplayNumbers = snapshot.val() || {};
 						renderTables();
 						if (activeView === "kitchen") renderKitchen();
+						if (!reservationsModal.classList.contains("hidden")) renderReservationsList();
 					});
 
 					// Drikke-kategorierne selv (admin kan tilføje/omdøbe/fjerne dem).
