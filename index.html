@@ -1991,7 +1991,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				const mainTotals = sumTablePax(slotTables, (table) => COURSE_PROGRESS[table.status] < COURSE_PROGRESS.main_ready);
 				const dessertTotals = sumTablePax(slotTables, (table) => COURSE_PROGRESS[table.status] < COURSE_PROGRESS.dessert_ready);
 
-				starterMissing.textContent = `${starterTotals.classic} klassisk · ${starterTotals.pescetarian} pescetar`;
+				starterMissing.textContent = `${starterTotals.classic + starterTotals.pescetarian} pax`;
 				mainMissingClassic.textContent = `${mainTotals.classic} klassisk`;
 				mainMissingPescetarian.textContent = `${mainTotals.pescetarian} pescetar`;
 				dessertMissing.textContent = `${dessertTotals.classic + dessertTotals.pescetarian} pax`;
@@ -2035,6 +2035,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			// HTML for én ret i køkkenkøen: navn, antal pax og "Tryk ud"-knappen.
+			// Kun hovedretten har en pescetarisk variant, så det er den eneste ret, hvor
+			// klassisk/pescetar-opdelingen vises. Forret og dessert viser bare "x pax".
 			function renderKitchenCourse(group, courseKey, courseOrders) {
 				const firstOrder = courseOrders[0][1];
 				const colors = {
@@ -2043,12 +2045,18 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					dessert: "border-emerald-300 bg-emerald-50 text-emerald-950",
 				}[courseKey];
 
+				const isMain = courseKey === "main";
+
+				// Total pax for retten (bruges af forret og dessert).
+				const totalQuantity = courseOrders.reduce((total, [, order]) => total + toQuantity(order.quantity), 0);
+
+				// Klassisk/pescetar-opdelingen beregnes kun for hovedretten.
 				const sumQuantity = (pescetarian) =>
 					courseOrders
 						.filter(([, order]) => isPescetarianCourse(order.course) === pescetarian)
 						.reduce((total, [, order]) => total + toQuantity(order.quantity), 0);
-				const regularQuantity = sumQuantity(false);
-				const pescetarianQuantity = sumQuantity(true);
+				const regularQuantity = isMain ? sumQuantity(false) : 0;
+				const pescetarianQuantity = isMain ? sumQuantity(true) : 0;
 
 				// Ventetid regnet fra den ældste ordre i retten. Skifter farve ved 10 og 20 minutter,
 				// så køkkenet kan se, hvilket bord der har ventet længst.
@@ -2057,7 +2065,16 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					waitedMinutes >= 20 ? "bg-rose-500 text-white" : waitedMinutes >= 10 ? "bg-yellow-500 text-white" : "bg-white/80 text-slate-700";
 				const waitBadge = `<span class="rounded-full px-2 py-1 text-xs font-bold ${waitColors}">${waitedMinutes} min</span>`;
 
-				return `<div class="rounded-xl border-2 p-5 ${colors}"><div class="flex flex-wrap items-center justify-between gap-4"><div><p class="flex items-center gap-2 text-xl font-bold">${escapeHtml(firstOrder.course.replace(/ · pescetarisk/gi, ""))}${waitBadge}</p><p class="mt-1 text-4xl font-bold">${regularQuantity + pescetarianQuantity}<span class="ml-2 text-base font-normal">pax</span></p>${pescetarianQuantity ? `<p class="mt-2 text-base font-bold">${pescetarianQuantity} pescetar${regularQuantity ? ` · ${regularQuantity} klassisk` : ""}</p>` : ""}</div><button data-complete-course="${escapeHtml(courseKey)}" data-complete-table="${escapeHtml(group.tableId)}" class="min-h-14 w-full rounded-xl bg-slate-900 px-5 py-4 text-lg font-bold text-white shadow-sm transition hover:bg-slate-700 sm:w-auto sm:min-w-32">Ready</button></div></div>`;
+				// Forret og dessert: bare "x pax". Hovedret: klassisk/pescetar-opdeling under tallet.
+				const paxLine = isMain
+					? `<p class="mt-1 text-4xl font-bold">${regularQuantity + pescetarianQuantity}<span class="ml-2 text-base font-normal">pax</span></p>${
+							pescetarianQuantity
+								? `<p class="mt-2 text-base font-bold">${pescetarianQuantity} pescetar${regularQuantity ? ` · ${regularQuantity} klassisk` : ""}</p>`
+								: ""
+						}`
+					: `<p class="mt-1 text-4xl font-bold">${totalQuantity}<span class="ml-2 text-base font-normal">pax</span></p>`;
+
+				return `<div class="rounded-xl border-2 p-5 ${colors}"><div class="flex flex-wrap items-center justify-between gap-4"><div><p class="flex items-center gap-2 text-xl font-bold">${escapeHtml(firstOrder.course.replace(/ · pescetarisk/gi, ""))}${waitBadge}</p>${paxLine}</div><button data-complete-course="${escapeHtml(courseKey)}" data-complete-table="${escapeHtml(group.tableId)}" class="min-h-14 w-full rounded-xl bg-slate-900 px-5 py-4 text-lg font-bold text-white shadow-sm transition hover:bg-slate-700 sm:w-auto sm:min-w-32">Ready</button></div></div>`;
 			}
 
 			// Færdigmelder alle ordrer for én ret på ét bord (både klassisk og pescetarisk),
