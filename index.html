@@ -196,15 +196,25 @@
 
 			<!-- Farveforklaring til bordkortene -->
 			<div id="statusLegend" class="mb-6 flex flex-wrap gap-2" aria-label="Statusforklaring">
+				<span class="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-bold text-white">Antal borde: <strong id="legendTotal">0</strong></span>
+				<span class="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-500 ring-1 ring-slate-300"
+					>Færdige borde: <strong id="legendFinished">0</strong></span
+				>
 				<span class="rounded-full bg-fuchsia-100 px-3 py-1.5 text-xs font-bold text-fuchsia-800"
 					><span class="rounded-full bg-white/80 px-1.5 py-0.5 shadow-sm ring-1 ring-black/10">🥂</span> Velkomstdrinks:
 					<strong id="welcomeDrinkTotal">0</strong></span
 				>
-				<span class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700">Grå · Ledigt</span>
-				<span class="rounded-full bg-rose-100 px-3 py-1.5 text-xs font-bold text-rose-800">Rød · Venter forret</span>
-				<span class="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-800">Gul · Forret</span>
-				<span class="rounded-full bg-sky-100 px-3 py-1.5 text-xs font-bold text-sky-800">Blå · Hovedret</span>
-				<span class="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-800">Grøn · Dessert</span>
+				<span class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700">Grå · Ledigt: <strong id="legendEmpty">0</strong></span>
+				<span class="rounded-full bg-rose-100 px-3 py-1.5 text-xs font-bold text-rose-800"
+					>Rød · Venter forret: <strong id="legendArrived">0</strong></span
+				>
+				<span class="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-800"
+					>Gul · Forret: <strong id="legendStarter">0</strong></span
+				>
+				<span class="rounded-full bg-sky-100 px-3 py-1.5 text-xs font-bold text-sky-800">Blå · Hovedret: <strong id="legendMain">0</strong></span>
+				<span class="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-800"
+					>Grøn · Dessert: <strong id="legendDessert">0</strong></span
+				>
 			</div>
 			<!-- Genveje til lokalerne, fastgjort i bunden af skærmen -->
 			<nav
@@ -1820,6 +1830,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					.reduce((sum, table) => sum + toQuantity(table.extras?.welcomeDrinkQuantity), 0);
 				currentRoomGroups = computeRoomGroups();
 				renderRoomHotbar();
+				renderStatusLegend();
 				tablesGrid.innerHTML = currentRoomGroups.map((room) => renderRoomSection(room, slotTables)).join("") + renderFinishedList(slotTables);
 
 				tablesGrid.querySelectorAll("[data-table-id]").forEach((card) => card.addEventListener("click", () => openModal(card.dataset.tableId)));
@@ -1853,6 +1864,28 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						reopenTable(button.dataset.reopenTable);
 					}),
 				);
+			}
+
+			// Tæller, hvor mange aktive borde (dvs. borde uden completedAt) der står på hver farve/status-kategori lige nu, og skriver tallene i statusLegend. Rød dækker både "arrived" og "drinks_served", Blå dækker hele hovedret-flowet (bestilt/klar/serveret), Grøn dækker hele dessert-flowet. Samme regler som farveforklaringen i toppen – se statuses' card-klasser.
+			function renderStatusLegend() {
+				const slotTables = Object.values(tables[selectedSlotKey] || {});
+				const activeTables = slotTables.filter((table) => !table.completedAt);
+				const finishedTables = slotTables.filter((table) => table.completedAt);
+				const groups = {
+					empty: ["empty"],
+					arrived: ["arrived", "drinks_served"],
+					starter: ["starter_served"],
+					main: ["main_ordered", "main_ready", "main_served"],
+					dessert: ["dessert_ordered", "dessert_ready", "dessert_served"],
+				};
+				const count = (statusList) => activeTables.filter((table) => statusList.includes(table.status || "empty")).length;
+				document.querySelector("#legendTotal").textContent = slotTables.length;
+				document.querySelector("#legendFinished").textContent = finishedTables.length;
+				document.querySelector("#legendEmpty").textContent = count(groups.empty);
+				document.querySelector("#legendArrived").textContent = count(groups.arrived);
+				document.querySelector("#legendStarter").textContent = count(groups.starter);
+				document.querySelector("#legendMain").textContent = count(groups.main);
+				document.querySelector("#legendDessert").textContent = count(groups.dessert);
 			}
 
 			function renderRoomSection(room, slotTables) {
