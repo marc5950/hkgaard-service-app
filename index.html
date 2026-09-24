@@ -130,29 +130,33 @@
 	<body class="min-h-screen">
 		<!-- ===== Topbjælke: forbindelsesstatus, skift til køkken/runner, opsætning ===== -->
 		<div class="mx-auto min-h-screen max-w-[1600px] px-4 py-5 pb-32 sm:px-8 sm:py-8 sm:pb-28">
-			<header class="mb-8 flex flex-col gap-5 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
-				<div>
-					<p class="mb-2 text-xs font-bold uppercase tracking-[.28em] text-rose-700">Dining Week · Service App</p>
-					<h1 class="font-display text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">Hestkøbgaard</h1>
-				</div>
-				<div class="flex w-auto flex-wrap justify-end gap-3">
-					<div class="flex gap-3">
-						<div class="flex h-[52px] items-center gap-3 rounded-xl bg-white px-4 shadow-sm ring-1 ring-slate-200">
-							<span id="connectionDot" class="status-dot h-3 w-3 rounded-full bg-slate-400"></span>
-							<div>
-								<p id="connectionLabel" class="text-sm font-bold text-slate-800">Forbinder...</p>
-								<p id="tableCount" class="text-xs text-slate-500">20 borde i alt</p>
+			<header class="mb-6 flex flex-col gap-3 border-b border-slate-200 pb-4 sm:mb-8 sm:pb-6">
+				<!-- Række 1: titel + status + admin-menu -->
+				<div class="flex items-center justify-between gap-3">
+					<div class="min-w-0">
+						<p class="text-[10px] font-bold uppercase tracking-[.25em] text-rose-700 sm:text-xs sm:tracking-[.28em]">Dining Week</p>
+						<h1 class="font-display truncate text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl md:text-4xl">Hestkøbgaard</h1>
+					</div>
+					<div class="flex shrink-0 items-center gap-2">
+						<div class="flex items-center gap-2 rounded-lg bg-white px-2.5 py-1.5 shadow-sm ring-1 ring-slate-200" title="Forbindelsesstatus">
+							<span id="connectionDot" class="status-dot h-2.5 w-2.5 shrink-0 rounded-full bg-slate-400"></span>
+							<div class="min-w-0">
+								<p id="connectionLabel" class="truncate text-xs font-bold leading-tight text-slate-800">Forbinder...</p>
+								<p id="tableCount" class="truncate text-[10px] leading-tight text-slate-500">0 pax</p>
 							</div>
 						</div>
 						<div class="relative">
 							<button
 								id="adminMenuToggle"
-								class="h-[52px] w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+								class="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-base text-slate-600 transition hover:bg-slate-50"
 								aria-haspopup="true"
-								aria-expanded="false">
-								⚙️ ▾
+								aria-expanded="false"
+								aria-label="Menu">
+								⚙️
 							</button>
-							<div id="adminMenu" class="absolute right-0 z-40 mt-2 hidden flex-col gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+							<div
+								id="adminMenu"
+								class="absolute right-0 z-40 mt-2 hidden min-w-44 flex-col gap-0.5 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
 								<button id="settingsToggle" class="w-full rounded-lg px-3 py-2 text-left text-sm font-bold text-slate-700 hover:bg-slate-50">
 									Opsætning
 								</button>
@@ -162,17 +166,29 @@
 							</div>
 						</div>
 					</div>
+				</div>
+
+				<!-- Række 2: segmenteret visningsvælger (Borde / Køkken / Runner) -->
+				<nav class="flex gap-1 rounded-xl bg-slate-100 p-1" aria-label="Skift visning">
+					<button
+						id="tablesToggle"
+						data-view="tables"
+						class="view-toggle flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold transition">
+						<span aria-hidden="true">🍽️</span><span class="hidden sm:inline">Borde</span>
+					</button>
 					<button
 						id="kitchenToggle"
-						class="h-[52px] flex-1 min-w-28 rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-700 sm:w-36">
-						Åbn køkken
+						data-view="kitchen"
+						class="view-toggle flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold transition">
+						<span aria-hidden="true">👨‍🍳</span><span class="hidden sm:inline">Køkken</span>
 					</button>
 					<button
 						id="runnerToggle"
-						class="h-[52px] flex-1 min-w-28 rounded-xl bg-sky-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-sky-800 sm:w-36">
-						Åbn runner
+						data-view="runner"
+						class="view-toggle flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold transition">
+						<span aria-hidden="true">🏃</span><span class="hidden sm:inline">Runner</span>
 					</button>
-				</div>
+				</nav>
 			</header>
 
 			<!-- Tidspunkter: hver dags Dining Week-hold. Valget styrer både bordoversigt, køkken og runner. -->
@@ -1755,7 +1771,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			function renderTables() {
 				const slotTables = tables[selectedSlotKey] || {};
 				const totalPax = Object.values(slotTables).reduce((sum, table) => sum + toQuantity(table.guests), 0);
-				tableCount.textContent = `${totalPax} pax i alt`;
+				tableCount.textContent = `${totalPax} pax denne tid`;
 				welcomeDrinkTotal.textContent = Object.values(slotTables)
 					.filter((table) => !table.completedAt)
 					.reduce((sum, table) => sum + toQuantity(table.extras?.welcomeDrinkQuantity), 0);
@@ -1911,8 +1927,17 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				roomHotbar.classList.toggle("hidden", !isTables);
 				reservationsToggle.classList.toggle("hidden", !isTables);
 				kitchenSummary.classList.remove("hidden");
-				kitchenToggle.textContent = isKitchen ? "Bordoversigt" : "Åbn køkken";
-				runnerToggle.textContent = isRunner ? "Bordoversigt" : "Åbn runner";
+
+				// Fremhæv det aktive segment i den segmenterede visningsvælger.
+				document.querySelectorAll(".view-toggle").forEach((button) => {
+					const isActive = button.dataset.view === view;
+					button.classList.toggle("bg-white", isActive);
+					button.classList.toggle("text-slate-900", isActive);
+					button.classList.toggle("shadow-sm", isActive);
+					button.classList.toggle("text-slate-500", !isActive);
+					button.classList.toggle("hover:text-slate-700", !isActive);
+				});
+
 				if (isKitchen) renderKitchen();
 				if (isRunner) renderRunner();
 			}
@@ -3084,9 +3109,10 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			document.querySelector("#saveImport").addEventListener("click", saveImport);
 			document.querySelector("#clearAllReservations").addEventListener("click", clearAllReservations);
 
-			// Skift mellem bordoversigt, køkken og runner.
-			kitchenToggle.addEventListener("click", () => setView(activeView === "kitchen" ? "tables" : "kitchen"));
-			runnerToggle.addEventListener("click", () => setView(activeView === "runner" ? "tables" : "runner"));
+			// Skift mellem bordoversigt, køkken og runner via den segmenterede visningsvælger.
+			document.querySelector("#tablesToggle").addEventListener("click", () => setView("tables"));
+			document.querySelector("#kitchenToggle").addEventListener("click", () => setView("kitchen"));
+			document.querySelector("#runnerToggle").addEventListener("click", () => setView("runner"));
 
 			/* ----------------------------------------------------------------------------
 						   14. OPSTART + FIREBASE-LYTTERE
