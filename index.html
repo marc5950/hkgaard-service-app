@@ -2216,9 +2216,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				barOrdersElement
 					.querySelectorAll("[data-complete-bar-order]")
 					.forEach((b) => b.addEventListener("click", () => completeBarOrder(b.dataset.completeBarOrder)));
-				barOrdersElement
-					.querySelectorAll("[data-cancel-bar-order]")
-					.forEach((b) => b.addEventListener("click", () => cancelBarOrder(b.dataset.cancelBarOrder)));
 				renderBarSummary();
 				renderBarInfo();
 			}
@@ -2248,7 +2245,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 								<p class="text-xs text-slate-500">${order.quantity} stk${order.categoryName ? ` · ${escapeHtml(order.categoryName)}` : ""}${order.createdAt ? ` · ${minutesSince(order.createdAt)} min` : ""}</p>
 							</div>
 							<div class="flex shrink-0 items-center gap-1.5">
-								<button type="button" data-cancel-bar-order="${id}" class="rounded-md px-1.5 py-0.5 text-xs font-bold text-rose-600 hover:bg-rose-50" aria-label="Annuller">✕</button>
 								<button type="button" data-complete-bar-order="${id}" class="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-slate-700">Klar</button>
 							</div>
 						</div>`,
@@ -2459,19 +2455,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				await createRunnerOrder(order.tableId, `Drikkevare · ${order.itemName}`, order.quantity, order.note, slot);
 			}
 
-			// Annullerer en bar-ordre (fx fejltastning).
-			async function cancelBarOrder(orderId) {
-				const order = barOrders[orderId];
-				if (!order) return;
-				if (!confirm(`Annuller ${order.itemName} × ${order.quantity} til bord ${getDisplayNumber(order.tableId)}?`)) return;
-				delete barOrders[orderId];
-				if (activeView === "bar") renderBar();
-				renderTimeSlotTabs();
-				if (window.database) {
-					await update(ref(window.database), { [`barOrders/${orderId}`]: null });
-				}
-			}
-
 			async function createRunnerOrder(tableId, course, quantity, note, slotOverride = null) {
 				const slot = slotOverride || selectedSlotKey;
 				if (!(Number(quantity) > 0)) return;
@@ -2655,16 +2638,10 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					entries
 						.map(
 							(entry) =>
-								`<div class="flex items-center justify-between gap-2"><span class="min-w-0 truncate font-semibold text-slate-700">${escapeHtml(entry.name)} <span class="text-slate-400">· ${entry.categoryLabel}</span></span><span class="flex shrink-0 items-center gap-2"><span class="font-bold text-slate-900">×${entry.quantity}</span><button type="button" data-remove-drink-entry="${entry.categoryId}:${entry.itemId}" class="rounded-md px-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50" aria-label="Fjern ${escapeHtml(entry.name)}">✕</button></span></div>`,
+								`<div class="flex items-center justify-between gap-2"><span class="min-w-0 truncate font-semibold text-slate-700">${escapeHtml(entry.name)} <span class="text-slate-400">· ${entry.categoryLabel}</span></span><span class="shrink-0 font-bold text-slate-900">×${entry.quantity}</span></div>`,
 						)
 						.join("") +
 					`<div class="mt-1 border-t border-slate-200 pt-1 text-right text-xs font-bold text-slate-500">I alt: ${getDrinksTotal(table)}</div>`;
-				drinksSummary.querySelectorAll("[data-remove-drink-entry]").forEach((button) =>
-					button.addEventListener("click", () => {
-						const [categoryKey, itemId] = button.dataset.removeDrinkEntry.split(":");
-						setDrinkItemCount(categoryKey, itemId, 0);
-					}),
-				);
 			}
 
 			function openDrinksPicker() {
@@ -2689,16 +2666,22 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				renderDrinksSummary(getActiveTable());
 			}
 
-			// Sammenligner med snapshot fra da varevælgeren blev åbnet, og sender
-			// alt NYT (nye varer og øgede antal) til baren som bar-ordrer.
+			// Sammenligner med snapshot fra da varevælgeren blev åbnet, og synkroniserer
+			// bar-køen: NYE/ØGEDE varer oprettes som nye bar-ordrer, REDUCEREDE varer
+			// trækkes fra de ventende bar-ordrer. Alt sker samlet her, så tjeneren kan
+			// taste −/+ frit uden at baren ser mellemliggende tilstande.
 			async function flushDrinkOrdersToBar() {
 				if (!activeTableId || !barPickerSnapshot) return;
 				const table = getActiveTable();
 				const currentDrinks = getDrinks(table);
-				const ordersToCreate = [];
+				const increases = [];
+				const decreases = [];
+				const seen = new Set();
 
+				// Gennemgå alle varer i den NYE tilstand (find nye og øgede).
 				Object.entries(currentDrinks).forEach(([categoryId, items]) => {
 					Object.entries(items || {}).forEach(([itemId, count]) => {
+						seen.add(`${categoryId}:${itemId}`);
 						const currentCount = toQuantity(count);
 						const oldCount = toQuantity(barPickerSnapshot[categoryId]?.[itemId]);
 						const delta = currentCount - oldCount;
@@ -2707,15 +2690,32 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 							const categoryName = category?.name || categoryId;
 							const itemName =
 								itemId === SELF_ITEM_ID ? categoryName : (drinkCatalog[categoryId] || []).find((c) => c.id === itemId)?.name || "Ukendt vare";
-							ordersToCreate.push({ categoryId, categoryName, itemId, itemName, quantity: delta });
+							increases.push({ categoryId, categoryName, itemId, itemName, quantity: delta });
+						} else if (delta < 0) {
+							decreases.push({ categoryId, itemId, quantity: -delta });
 						}
 					});
 				});
 
+				// Gennemgå den GAMLE tilstand for varer, der er fjernet helt.
+				Object.entries(barPickerSnapshot).forEach(([categoryId, items]) => {
+					Object.entries(items || {}).forEach(([itemId, oldRaw]) => {
+						if (seen.has(`${categoryId}:${itemId}`)) return;
+						const oldCount = toQuantity(oldRaw);
+						if (oldCount > 0) decreases.push({ categoryId, itemId, quantity: oldCount });
+					});
+				});
+
+				const slot = selectedSlotKey;
+				const tableId = activeTableId;
 				barPickerSnapshot = null;
 
-				for (const order of ordersToCreate) {
-					await createBarOrder(activeTableId, order.itemId, order.itemName, order.categoryId, order.categoryName, order.quantity, table.note);
+				// Reduktioner først, så vi ikke skaber nye ordrer som straks skal fjernes.
+				for (const d of decreases) {
+					await reduceBarOrdersForItem(slot, tableId, d.categoryId, d.itemId, d.quantity);
+				}
+				for (const order of increases) {
+					await createBarOrder(tableId, order.itemId, order.itemName, order.categoryId, order.categoryName, order.quantity, table.note);
 				}
 			}
 
@@ -2807,6 +2807,39 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				} catch (error) {
 					console.error(error);
 				}
+			}
+
+			// Trækker et antal fra de ventende bar-ordrer for én vare på ét bord. Bruges når
+			// tjeneren retter antallet ned i varevælgeren, eller fjerner varen helt med ✕.
+			// Vi fjerner de NYESTE ordrer først, så en gammel (måske allerede i produktion)
+			// ordre bliver stående så længe som muligt.
+			async function reduceBarOrdersForItem(slot, tableId, categoryId, itemId, amount) {
+				if (amount <= 0) return;
+				let remaining = amount;
+				const matching = Object.entries(barOrders)
+					.filter(([, o]) => o.slot === slot && String(o.tableId) === String(tableId) && o.categoryId === categoryId && o.itemId === itemId)
+					.sort(([, a], [, b]) => (b.createdAt || 0) - (a.createdAt || 0));
+
+				const changes = {};
+				for (const [orderId, order] of matching) {
+					if (remaining <= 0) break;
+					const qty = toQuantity(order.quantity);
+					if (qty <= remaining) {
+						delete barOrders[orderId];
+						changes[`barOrders/${orderId}`] = null;
+						remaining -= qty;
+					} else {
+						const newQty = qty - remaining;
+						barOrders[orderId] = { ...order, quantity: newQty };
+						changes[`barOrders/${orderId}/quantity`] = newQty;
+						remaining = 0;
+					}
+				}
+
+				if (!Object.keys(changes).length) return;
+				if (window.database) await update(ref(window.database), changes);
+				if (activeView === "bar") renderBar();
+				renderTimeSlotTabs();
 			}
 
 			/* ---- Drikkekort-editor (admin, i Opsætning) ---- */
