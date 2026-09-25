@@ -1,0 +1,112 @@
+/* Basis: farver, skrifttyper og baggrund */
+:root {
+	color-scheme: light;
+}
+body {
+	background: #f4f5f7;
+	color: #17202a;
+	font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+}
+
+@layer base {
+	button,
+	select,
+	[type="button"],
+	[type="reset"],
+	[type="submit"] {
+		cursor: pointer;
+	}
+}
+.font-display {
+	font-family: Georgia, "Times New Roman", serif;
+}
+.table-card {
+	transition:
+		transform 160ms ease,
+		box-shadow 160ms ease;
+}
+.table-card-empty {
+	min-height: 0;
+}
+.room-section {
+	scroll-margin-top: 1.5rem;
+}
+.room-table-grid {
+	grid-template-columns: minmax(0, 1fr) !important;
+}
+@media (min-width: 640px) {
+	.room-table-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+	}
+}
+@media (min-width: 1024px) {
+	.room-table-grid {
+		grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+	}
+}
+@media (min-width: 1280px) {
+	.room-table-grid {
+		grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+	}
+}
+@media (min-width: 1280px) {
+	.table-card:hover {
+		transform: translateY(-3px);
+		box-shadow: 0 14px 30px rgba(23, 32, 42, 0.14);
+	}
+}
+.table-card-ready-dot {
+	position: relative;
+	box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.22);
+	animation: ready-dot-pulse 1.8s ease-in-out infinite;
+}
+@keyframes ready-dot-pulse {
+	0%,
+	100% {
+		box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.22);
+	}
+	50% {
+		box-shadow: 0 0 0 7px rgba(245, 158, 11, 0.38);
+	}
+}
+.time-slot-tab-alert {
+	animation: time-slot-alert-pulse 1.1s ease-in-out infinite;
+}
+@keyframes time-slot-alert-pulse {
+	0%,
+	100% {
+		box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.45);
+		background-color: rgb(255, 255, 255);
+	}
+	50% {
+		box-shadow: 0 0 0 5px rgba(225, 29, 72, 0);
+		background-color: rgb(254, 226, 226);
+	}
+}
+.modal-backdrop {
+	background: rgba(23, 32, 42, 0.58);
+	backdrop-filter: blur(5px);
+}
+.modal-panel {
+	animation: rise 180ms ease-out;
+}
+@keyframes rise {
+	from {
+		opacity: 0;
+		transform: translateY(14px) scale(0.98);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+.status-dot {
+	box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.28);
+}
+.status-button-muted {
+	opacity: 0.52;
+	filter: saturate(0.55);
+}
+.status-button-next {
+	box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.18);
+}
