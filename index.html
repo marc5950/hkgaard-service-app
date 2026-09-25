@@ -28,7 +28,6 @@
 			.font-display {
 				font-family: Georgia, "Times New Roman", serif;
 			}
-			/* Bordkort i oversigten */
 			.table-card {
 				transition:
 					transform 160ms ease,
@@ -40,7 +39,6 @@
 			.room-section {
 				scroll-margin-top: 1.5rem;
 			}
-			/* Bordgitteret: 1 kolonne på mobil, op til 4 på store skærme */
 			.room-table-grid {
 				grid-template-columns: minmax(0, 1fr) !important;
 			}
@@ -65,7 +63,6 @@
 					box-shadow: 0 14px 30px rgba(23, 32, 42, 0.14);
 				}
 			}
-			/* Pulserende prik = køkkenet har meldt en ret klar */
 			.table-card-ready-dot {
 				position: relative;
 				box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.22);
@@ -80,8 +77,6 @@
 					box-shadow: 0 0 0 7px rgba(245, 158, 11, 0.38);
 				}
 			}
-			/* Blinker på et hold-faneblad, når der er en aktiv køkken-/runner-/bar-ordre
-			   på et hold, man ikke selv kigger på lige nu. */
 			.time-slot-tab-alert {
 				animation: time-slot-alert-pulse 1.1s ease-in-out infinite;
 			}
@@ -96,7 +91,6 @@
 					background-color: rgb(254, 226, 226);
 				}
 			}
-			/* Modaler (bord + opsætning) */
 			.modal-backdrop {
 				background: rgba(23, 32, 42, 0.58);
 				backdrop-filter: blur(5px);
@@ -117,7 +111,6 @@
 			.status-dot {
 				box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.28);
 			}
-			/* Statusknapper: den næste i rækkefølgen fremhæves, resten dæmpes */
 			.status-button-muted {
 				opacity: 0.52;
 				filter: saturate(0.55);
@@ -128,10 +121,8 @@
 		</style>
 	</head>
 	<body class="min-h-screen">
-		<!-- ===== Topbjælke: forbindelsesstatus, skift mellem visninger, opsætning ===== -->
 		<div class="mx-auto min-h-screen max-w-[1600px] px-4 py-5 pb-32 sm:px-8 sm:py-8 sm:pb-28">
 			<header class="mb-6 flex flex-col gap-3 border-b border-slate-200 pb-4 sm:mb-8 sm:pb-6">
-				<!-- Række 1: titel + status + admin-menu -->
 				<div class="flex items-center justify-between gap-3">
 					<div class="min-w-0">
 						<p class="text-[10px] font-bold uppercase tracking-[.25em] text-rose-700 sm:text-xs sm:tracking-[.28em]">Dining Week</p>
@@ -171,7 +162,6 @@
 					</div>
 				</div>
 
-				<!-- Række 2: segmenteret visningsvælger (Borde / Køkken / Bar / Runner) -->
 				<nav class="flex gap-1 rounded-xl bg-slate-100 p-1" aria-label="Skift visning">
 					<button
 						id="tablesToggle"
@@ -200,10 +190,8 @@
 				</nav>
 			</header>
 
-			<!-- Tidspunkter: hver dags Dining Week-hold. Valget styrer alle fire visninger. -->
 			<nav id="timeSlotTabs" class="mb-6 flex flex-wrap gap-2" aria-label="Vælg hold"></nav>
 
-			<!-- Farveforklaring til bordkortene -->
 			<div id="statusLegend" class="mb-6 flex flex-wrap gap-2" aria-label="Statusforklaring">
 				<span class="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-bold text-white">Antal borde: <strong id="legendTotal">0</strong></span>
 				<span class="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-500 ring-1 ring-slate-300"
@@ -225,7 +213,7 @@
 					>Grøn · Dessert: <strong id="legendDessert">0</strong></span
 				>
 			</div>
-			<!-- Genveje til lokalerne, fastgjort i bunden af skærmen -->
+
 			<nav
 				id="roomHotbar"
 				class="fixed inset-x-0 bottom-0 z-40 flex flex-wrap justify-center gap-2 border-t border-slate-200 bg-white/95 px-3 py-3 shadow-[0_-8px_24px_rgba(23,32,42,.12)] backdrop-blur sm:px-6"
@@ -233,8 +221,6 @@
 				<div id="roomHotbarButtons" class="flex flex-wrap justify-center gap-2"></div>
 			</nav>
 
-			<!-- Fast, altid tilgængelig genvej til at finde en reservation på tjener-siden
-			     (skjules i køkken-, bar- og runner-visningen, ligesom roomHotbar ovenfor). -->
 			<button
 				id="reservationsToggle"
 				type="button"
@@ -244,10 +230,8 @@
 				📅
 			</button>
 
-			<!-- Visning 1: bordoversigten (bygges i JS af renderTables) -->
 			<main id="tablesGrid" class="space-y-10"></main>
 
-			<!-- Visning 2: køkkenkøen (bygges i JS af renderKitchen) -->
 			<section id="kitchenView" class="hidden" aria-labelledby="kitchenTitle">
 				<div class="mb-6 flex items-end justify-between gap-4">
 					<div>
@@ -282,7 +266,6 @@
 				</p>
 			</section>
 
-			<!-- Visning 3: bar-køen – ekstra drikkevarer der skal laves. -->
 			<section id="barView" class="hidden" aria-labelledby="barTitle">
 				<div class="mb-6 flex items-end justify-between gap-4">
 					<div>
@@ -299,8 +282,6 @@
 				</p>
 			</section>
 
-			<!-- Visning 4: runner-køen – alle retter der er meldt klar i køkkenet
-			     eller baren, og som skal bæres ud til bordet. -->
 			<section id="runnerView" class="hidden" aria-labelledby="runnerTitle">
 				<div class="mb-6 flex items-end justify-between gap-4">
 					<div>
@@ -316,7 +297,7 @@
 			</section>
 		</div>
 
-		<!-- ===== Bord-modal: gæster, tilvalg, statusknapper og note ===== -->
+		<!-- ===== Bord-modal ===== -->
 		<div
 			id="tableModal"
 			class="modal-backdrop fixed inset-0 z-50 hidden items-end justify-center overflow-hidden p-3 sm:items-center sm:p-6"
@@ -449,7 +430,6 @@
 							Gem
 						</button>
 					</div>
-					<!-- Slet walk-in bord: kun synlig hvis bordet er oprettet som walk-in. -->
 					<button
 						id="deleteWalkInBtn"
 						type="button"
@@ -534,7 +514,7 @@
 			</div>
 		</div>
 
-		<!-- ===== Drikkevare-modal: tjenerne vælger konkrete varer for det åbne bord ===== -->
+		<!-- ===== Drikkevare-modal ===== -->
 		<div
 			id="drinksPickerModal"
 			class="modal-backdrop fixed inset-0 z-50 hidden items-end justify-center overflow-hidden p-3 sm:items-center sm:p-6"
@@ -563,7 +543,7 @@
 			</div>
 		</div>
 
-		<!-- ===== Drikkekort-modal: admin vedligeholder de konkrete varer pr. overkategori ===== -->
+		<!-- ===== Drikkekort-modal ===== -->
 		<div
 			id="drinkCatalogModal"
 			class="modal-backdrop fixed inset-0 z-50 hidden items-end justify-center overflow-hidden p-3 sm:items-center sm:p-6"
@@ -632,7 +612,7 @@
 			</div>
 		</div>
 
-		<!-- ===== Guide-modal: rollespecifikke flows og reference ===== -->
+		<!-- ===== Guide-modal ===== -->
 		<div
 			id="guideModal"
 			class="modal-backdrop fixed inset-0 z-50 hidden items-end justify-center overflow-hidden p-3 sm:items-center sm:p-6"
@@ -654,7 +634,6 @@
 					</button>
 				</div>
 
-				<!-- Faner: ét pr. rolle -->
 				<nav
 					id="guideTabs"
 					class="flex shrink-0 gap-1 overflow-x-auto border-b border-slate-200 bg-slate-50 px-3 py-2 sm:px-5"
@@ -670,8 +649,7 @@
 			</div>
 		</div>
 
-		<!-- ===== Walk-in modal: opret bord til gæster uden reservation ===== -->
-		<!-- ===== Walk-in modal: opret bord til gæster uden reservation ===== -->
+		<!-- ===== Walk-in modal ===== -->
 		<div
 			id="walkInModal"
 			class="modal-backdrop fixed inset-0 z-[60] hidden items-end justify-center overflow-hidden p-3 sm:items-center sm:p-6"
@@ -698,14 +676,12 @@
 					</div>
 					<div>
 						<label for="walkInTable" class="mb-1 block text-xs font-bold text-slate-700">Bordnummer</label>
-						<input
+						<select
 							id="walkInTable"
-							list="walkInTableList"
-							type="text"
-							inputmode="numeric"
-							placeholder="Fx 12"
-							class="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-rose-500 focus:ring-4 focus:ring-rose-100" />
-						<datalist id="walkInTableList"></datalist>
+							class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-rose-500 focus:ring-4 focus:ring-rose-100"></select>
+						<p class="mt-1 text-[11px] text-slate-400">
+							Kun ledige borde vises, grupperet pr. lokale. Kombinerede borde (fx 101+102) vises som ét valg, hvis begge enkeltborde er ledige.
+						</p>
 					</div>
 					<div>
 						<label for="walkInName" class="mb-1 block text-xs font-bold text-slate-700">Navn</label>
@@ -865,41 +841,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 		<script type="module">
 			/* ============================================================================
 						   BORDSTYRING · HESTKØBGAARD
-						   ----------------------------------------------------------------------------
-						   Dagen starter med en JSON-import af Dining Week-reservationerne. Al
-						   bookingdata (navn, pax, menuvalg) kommer derfra – tjeneren redigerer kun
-						   status og en fri note. Appen har fire visninger:
-
-						     1) Bordoversigt  – tjeneren vælger et hold, ser bordene og opdaterer status.
-						     2) Køkkenkø      – køkkenet ser hovedret/dessert-bestillinger, som "trykkes ud".
-						     3) Bar           – baren ser ekstra drikkevarer, som "trykkes ud".
-						     4) Runner        – runneren ser alle retter/drikkevarer, der er klar til
-						                        at blive båret ud.
-
-						   Derudover kan tjenerne oprette walk-in borde (gæster uden reservation) via
-						   reservations-modalen. Walk-ins opfører sig som almindelige borde, men
-						   markeres med isWalkIn: true, så importen kan advare inden de overskrives.
-
-						   Filens opbygning (søg efter overskrifterne):
-						     1.  FIREBASE-OPSÆTNING
-						     2.  KONSTANTER
-						     3.  APPENS TILSTAND
-						     4.  DOM-REFERENCER
-						     5.  SMÅ HJÆLPEFUNKTIONER
-						     6.  HOLD + LOKALER
-						     7.  OPSÆTNINGS-MODAL
-						     8.  IMPORT-MODAL
-						     9.  BORDOVERSIGT
-						     10. KØKKEN / BAR / RUNNER
-						     11. ORDRER (køkken, bar, runner)
-						     12. BORD-MODAL + WALK-IN
-						     13. EVENT-BINDINGER
-						     14. OPSTART + FIREBASE-LYTTERE
 						   ============================================================================ */
-
-			/* ----------------------------------------------------------------------------
-						   1. FIREBASE-OPSÆTNING
-						---------------------------------------------------------------------------- */
 			import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 			import { getDatabase, onValue, push, ref, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
@@ -914,7 +856,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			};
 
 			/* ----------------------------------------------------------------------------
-						   2. KONSTANTER
+						   KONSTANTER
 						---------------------------------------------------------------------------- */
 
 			const TIME_SLOTS = ["11:45", "12:30", "13:30", "14:15", "17:30", "19:45"];
@@ -1020,6 +962,61 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			];
 			const SELF_ITEM_ID = "_self";
 
+			// Alle borde fra restaurantens bordkort.
+			const PREDEFINED_TABLES = [
+				{ id: "96", maxPax: 1 },
+				{ id: "97", maxPax: 1 },
+				{ id: "98", maxPax: 1 },
+				{ id: "99", maxPax: 1 },
+				{ id: "101", maxPax: 2 },
+				{ id: "102", maxPax: 2 },
+				{ id: "103", maxPax: 2 },
+				{ id: "104", maxPax: 2 },
+				{ id: "105", maxPax: 2 },
+				{ id: "106", maxPax: 2 },
+				{ id: "107", maxPax: 2 },
+				{ id: "108", maxPax: 2 },
+				{ id: "109", maxPax: 2 },
+				{ id: "110", maxPax: 2 },
+				{ id: "111", maxPax: 2 },
+				{ id: "112", maxPax: 2 },
+				{ id: "113", maxPax: 2 },
+				{ id: "114", maxPax: 2 },
+				{ id: "115", maxPax: 2 },
+				{ id: "116", maxPax: 4 },
+				{ id: "117", maxPax: 4 },
+				{ id: "118", maxPax: 4 },
+				{ id: "119", maxPax: 4 },
+				{ id: "120", maxPax: 4 },
+				{ id: "121", maxPax: 4 },
+				{ id: "122", maxPax: 4 },
+				{ id: "123", maxPax: 4 },
+				{ id: "124", maxPax: 4 },
+				{ id: "125", maxPax: 4 },
+				{ id: "126", maxPax: 8 },
+				{ id: "127", maxPax: 8 },
+				{ id: "128", maxPax: 8 },
+				{ id: "129", maxPax: 9 },
+				{ id: "130", maxPax: 9 },
+				{ id: "131", maxPax: 10 },
+				{ id: "132", maxPax: 10 },
+				{ id: "133", maxPax: 12 },
+				{ id: "134", maxPax: 12 },
+				{ id: "201", maxPax: 4 },
+				{ id: "202", maxPax: 4 },
+				{ id: "203", maxPax: 4 },
+				{ id: "204", maxPax: 4 },
+				{ id: "205", maxPax: 4 },
+				{ id: "206", maxPax: 6 },
+				{ id: "207", maxPax: 6 },
+				{ id: "208", maxPax: 8 },
+				{ id: "209", maxPax: 8 },
+				{ id: "210", maxPax: 10 },
+				{ id: "211", maxPax: 10 },
+			];
+
+			const DEFAULT_COMBINED_TABLES = [{ id: "101102", label: "101+102", tables: ["101", "102"], maxPax: 4 }];
+
 			const roomColors = {
 				rose: { label: "Rød", accent: "text-rose-700", line: "bg-rose-600", nav: "bg-rose-100 text-rose-800" },
 				sky: { label: "Blå", accent: "text-sky-700", line: "bg-sky-600", nav: "bg-sky-100 text-sky-800" },
@@ -1043,7 +1040,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			};
 
 			/* ----------------------------------------------------------------------------
-						   3. APPENS TILSTAND
+						   APPENS TILSTAND
 						---------------------------------------------------------------------------- */
 			let tables = Object.fromEntries(TIME_SLOTS.map((slot) => [slotKey(slot), {}]));
 			let kitchenOrders = {};
@@ -1063,6 +1060,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			];
 			let tableRoomAssignments = {};
 			let tableDisplayNumbers = {};
+			let tableMaxPax = Object.fromEntries(PREDEFINED_TABLES.map((t) => [t.id, t.maxPax]));
+			let combinedTables = [...DEFAULT_COMBINED_TABLES];
 			let drinkCategories = DEFAULT_DRINK_CATEGORIES.map((category) => ({ ...category }));
 			let drinkCatalog = {};
 			let expandedDrinkCategory = null;
@@ -1073,7 +1072,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			let reservationsSlotFilter = null;
 
 			/* ----------------------------------------------------------------------------
-						   4. DOM-REFERENCER
+						   DOM-REFERENCER
 						---------------------------------------------------------------------------- */
 
 			const connectionDot = document.querySelector("#connectionDot");
@@ -1151,11 +1150,9 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			const guideTabs = document.querySelector("#guideTabs");
 			const guideBody = document.querySelector("#guideBody");
 
-			// Walk-in modal
 			const walkInModal = document.querySelector("#walkInModal");
 			const walkInSlot = document.querySelector("#walkInSlot");
 			const walkInTable = document.querySelector("#walkInTable");
-			const walkInTableList = document.querySelector("#walkInTableList");
 			const walkInPax = document.querySelector("#walkInPax");
 			const walkInPescetar = document.querySelector("#walkInPescetar");
 			const walkInWelcomeDrink = document.querySelector("#walkInWelcomeDrink");
@@ -1166,7 +1163,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			const walkInMessage = document.querySelector("#walkInMessage");
 
 			/* ----------------------------------------------------------------------------
-						   5. SMÅ HJÆLPEFUNKTIONER
+						   HJÆLPEFUNKTIONER
 						---------------------------------------------------------------------------- */
 
 			function escapeHtml(value) {
@@ -1228,7 +1225,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			/* ----------------------------------------------------------------------------
-						   RESERVATIONSLISTE ("Find en reservation")
+						   RESERVATIONSLISTE
 						---------------------------------------------------------------------------- */
 
 			function getAllReservations({ slotFilter = null } = {}) {
@@ -1452,6 +1449,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			function getAllKnownTableNumbers() {
 				const numbers = new Set();
 				TIME_SLOTS.forEach((slot) => Object.keys(tables[slotKey(slot)] || {}).forEach((number) => numbers.add(number)));
+				PREDEFINED_TABLES.forEach((t) => numbers.add(t.id));
 				return Array.from(numbers).sort((a, b) => Number(a) - Number(b));
 			}
 
@@ -1477,7 +1475,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			/* ----------------------------------------------------------------------------
-						   6. HOLD + LOKALER
+						   HOLD + LOKALER
 						---------------------------------------------------------------------------- */
 
 			function renderTimeSlotTabs() {
@@ -1571,7 +1569,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			/* ----------------------------------------------------------------------------
-						   7. OPSÆTNINGS-MODAL
+						   OPSÆTNINGS-MODAL
 						---------------------------------------------------------------------------- */
 
 			function renderSettingsRows() {
@@ -1636,7 +1634,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			function getTablePaxHint(number) {
-				let pax = null;
+				let pax = tableMaxPax[number] || null;
 				TIME_SLOTS.forEach((slot) => {
 					const table = (tables[slotKey(slot)] || {})[number];
 					if (table) pax = Math.max(pax || 0, toQuantity(table.guests));
@@ -1719,6 +1717,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 							"settings/rooms": settingsRooms.map(({ id, name, accent, line, nav }) => ({ id, name, accent, line, nav })),
 							"settings/tableRooms": tableRoomAssignments,
 							"settings/tableNumbers": tableDisplayNumbers,
+							"settings/tableMaxPax": tableMaxPax,
+							"settings/combinedTables": combinedTables,
 						});
 					}
 					settingsMessage.textContent = "Opsætning gemt";
@@ -1792,7 +1792,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			/* ----------------------------------------------------------------------------
-						   8. IMPORT-MODAL
+						   IMPORT-MODAL
 						---------------------------------------------------------------------------- */
 
 			function normalizeImportPayload(raw) {
@@ -1866,7 +1866,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				try {
 					const normalized = normalizeImportPayload(parsedJson);
 
-					// Første gennemløb: find konflikter med walk-ins.
 					const conflicts = [];
 					Object.entries(normalized).forEach(([hold, reservations]) => {
 						if (!reservations || !reservations.length) return;
@@ -1881,7 +1880,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						});
 					});
 
-					// Spørg brugeren hvad der skal ske med walk-ins.
 					let overwriteWalkIns = true;
 					if (conflicts.length > 0) {
 						const conflictList = conflicts.map((c) => `Bord ${c.cleanTableKey}`).join(", ");
@@ -1909,7 +1907,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 
 							const existingTable = slotTables[cleanTableKey] || (tables[hold] && tables[hold][cleanTableKey]) || null;
 
-							// Spring walk-in over hvis brugeren valgte det.
 							if (existingTable && existingTable.isWalkIn && !overwriteWalkIns) {
 								skippedWalkIns++;
 								return;
@@ -1947,11 +1944,11 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						await update(ref(window.database), updates);
 					}
 
-					if (typeof renderTimeSlotTabs === "function") renderTimeSlotTabs();
-					if (typeof renderTables === "function") renderTables();
-					if (typeof renderKitchen === "function") renderKitchen();
-					if (typeof renderBar === "function") renderBar();
-					if (typeof renderRunner === "function") renderRunner();
+					renderTimeSlotTabs();
+					renderTables();
+					renderKitchen();
+					renderBar();
+					renderRunner();
 
 					const slotLabel = touchedSlots.size === 1 ? "1 tidspunkt" : `${touchedSlots.size} tidspunkter`;
 					let message = `${totalBookings} reservationer importeret (${slotLabel})`;
@@ -1996,7 +1993,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			/* ----------------------------------------------------------------------------
-						   9. BORDOVERSIGT
+						   BORDOVERSIGT
 						---------------------------------------------------------------------------- */
 
 			function renderTables() {
@@ -2128,7 +2125,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					: `<span class="h-2.5 w-2.5 shrink-0 rounded-full ${status.dot}" title="${status.label}"></span>`;
 
 				return `<button class="table-card rounded-xl border-2 px-3 py-2 text-left shadow-sm ${status.card}" data-table-id="${id}">
-								<div class="flex items-center justify-between"><span class="font-display flex flex-wrap items-center gap-1.5 text-base font-bold text-slate-900 sm:text-lg">Bord ${escapeHtml(getDisplayNumber(id))} <span class="font-sans text-xs font-bold text-slate-500 sm:text-sm">· ${toQuantity(table.guests)} pax</span>${table.isWalkIn ? `<span class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-800 ring-1 ring-amber-300 sm:text-[10px]">Walk-in</span>` : ""}</span><div class="flex items-center gap-2"><span class="flex items-center gap-1 text-xs" aria-hidden="true">${extraIcons.join("")}</span>${dot}</div></div>								${seatedBadge ? `<div>${seatedBadge}</div>` : ""}
+								<div class="flex items-center justify-between"><span class="font-display flex flex-wrap items-center gap-1.5 text-base font-bold text-slate-900 sm:text-lg">Bord ${escapeHtml(getDisplayNumber(id))} <span class="font-sans text-xs font-bold text-slate-500 sm:text-sm">· ${toQuantity(table.guests)} pax</span>${table.isWalkIn ? `<span class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-800 ring-1 ring-amber-300 sm:text-[10px]">Walk-in</span>` : ""}</span><div class="flex items-center gap-2"><span class="flex items-center gap-1 text-xs" aria-hidden="true">${extraIcons.join("")}</span>${dot}</div></div>
+								${seatedBadge ? `<div>${seatedBadge}</div>` : ""}
 								${details}
 							</button>`;
 			}
@@ -2155,7 +2153,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			/* ----------------------------------------------------------------------------
-						   10. KØKKEN / BAR / RUNNER
+						   KØKKEN / BAR / RUNNER
 						---------------------------------------------------------------------------- */
 
 			function setView(view) {
@@ -2581,7 +2579,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			/* ----------------------------------------------------------------------------
-						   11. ORDRER (køkken, bar, runner)
+						   ORDRER
 						---------------------------------------------------------------------------- */
 
 			async function createKitchenOrder(tableId, quantity, note, course, readyStatus = "") {
@@ -2712,7 +2710,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			/* ----------------------------------------------------------------------------
-						   12. BORD-MODAL + WALK-IN
+						   BORD-MODAL + WALK-IN
 						---------------------------------------------------------------------------- */
 
 			function renderBookingInfo(table) {
@@ -2827,7 +2825,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				updateStatusButtons(table.status);
 				saveMessage.textContent = "";
 
-				// Slet-knap til walk-ins: kun synlig når bordet er oprettet som walk-in.
 				deleteWalkInBtn.classList.toggle("hidden", !table.isWalkIn);
 
 				modal.classList.remove("hidden");
@@ -3036,20 +3033,114 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				renderTimeSlotTabs();
 			}
 
-			/* ---- Walk-in ---- */
+			/* ---- Walk-in hjælpere ---- */
+
+			function isTableInUse(slot, tableId) {
+				const slotTables = tables[slot] || {};
+				if (slotTables[tableId]) return true;
+				for (const combined of combinedTables) {
+					if (combined.tables.includes(tableId) && slotTables[combined.id]) return true;
+				}
+				return false;
+			}
+
+			function isCombinedTableFree(slot, combined) {
+				const slotTables = tables[slot] || {};
+				if (slotTables[combined.id]) return false;
+				for (const t of combined.tables) {
+					if (slotTables[t]) return false;
+					for (const other of combinedTables) {
+						if (other.id === combined.id) continue;
+						if (other.tables.includes(t) && slotTables[other.id]) return false;
+					}
+				}
+				return true;
+			}
+
+			// Bygger label for et bord i walk-in dropdown: viser tildelt bordskilt-nummer
+			// og maks pax. Hvis tildelt nummer er forskelligt fra det oprindelige ID,
+			// vises ID'et i parentes så personalet kan genkende bordet.
+			function buildTableOptionLabel(tableId, maxPax, extraSuffix = "") {
+				const display = getDisplayNumber(tableId);
+				const isRenamed = String(display) !== String(tableId);
+				const idPart = isRenamed ? ` (${tableId})` : "";
+				return `Bord ${display}${idPart} · maks ${maxPax} pax${extraSuffix}`;
+			}
+
+			function buildEmptyTableOptions(slot) {
+				const byRoom = {};
+				const addToRoom = (roomId, option) => {
+					if (!byRoom[roomId]) byRoom[roomId] = [];
+					byRoom[roomId].push(option);
+				};
+
+				PREDEFINED_TABLES.forEach((t) => {
+					if (isTableInUse(slot, t.id)) return;
+					const roomId = tableRoomAssignments[t.id] || "__unassigned";
+					addToRoom(roomId, {
+						value: t.id,
+						label: buildTableOptionLabel(t.id, t.maxPax),
+						maxPax: t.maxPax,
+						sort: Number(getDisplayNumber(t.id)) || Number(t.id),
+					});
+				});
+
+				combinedTables.forEach((combined) => {
+					if (!isCombinedTableFree(slot, combined)) return;
+					const roomId = tableRoomAssignments[combined.tables[0]] || "__unassigned";
+					// Kombinerede borde: vis de tildelte numre for begge enkeltborde.
+					const displayA = getDisplayNumber(combined.tables[0]);
+					const displayB = getDisplayNumber(combined.tables[1] || combined.tables[0]);
+					const label = `Bord ${displayA} + ${displayB} · maks ${combined.maxPax} pax (sammenslået)`;
+					addToRoom(roomId, {
+						value: combined.id,
+						label,
+						maxPax: combined.maxPax,
+						sort: Number(displayA) || 0,
+					});
+				});
+
+				return byRoom;
+			}
+
+			function populateWalkInTableOptions() {
+				const slot = walkInSlot.value;
+				const byRoom = buildEmptyTableOptions(slot);
+				const roomOrder = settingsRooms.map((r) => r.id);
+				if (!roomOrder.includes("__unassigned")) roomOrder.push("__unassigned");
+
+				let html = '<option value="">— Vælg bord —</option>';
+				roomOrder.forEach((roomId) => {
+					const list = byRoom[roomId];
+					if (!list || !list.length) return;
+					const room = settingsRooms.find((r) => r.id === roomId);
+					const roomName = room ? room.name : "Ikke tildelt";
+					html += `<optgroup label="${escapeHtml(roomName)}">`;
+					list.sort((a, b) => a.sort - b.sort || String(a.value).localeCompare(String(b.value)));
+					list.forEach((opt) => {
+						html += `<option value="${escapeHtml(opt.value)}" data-max-pax="${opt.maxPax}">${escapeHtml(opt.label)}</option>`;
+					});
+					html += `</optgroup>`;
+				});
+				walkInTable.innerHTML = html;
+			}
+
+			function onWalkInTableChange() {
+				const opt = walkInTable.options[walkInTable.selectedIndex];
+				const maxPax = Number(opt?.dataset?.maxPax) || 0;
+				if (maxPax > 0) {
+					const current = toQuantity(walkInPax.value);
+					if (current > maxPax) walkInPax.value = maxPax;
+				}
+			}
 
 			function openWalkInForm() {
-				// Udfyld hold-dropdown med alle tider, forvalg = det hold man kigger på nu.
 				walkInSlot.innerHTML = TIME_SLOTS.map(
 					(slot) => `<option value="${slotKey(slot)}" ${slotKey(slot) === selectedSlotKey ? "selected" : ""}>${slot}</option>`,
 				).join("");
 
-				// Udfyld datalist med alle kendte bordnumre.
-				const knownNumbers = getAllKnownTableNumbers();
-				walkInTableList.innerHTML = knownNumbers.map((n) => `<option value="${escapeHtml(n)}"></option>`).join("");
+				populateWalkInTableOptions();
 
-				// Nulstil formularen.
-				walkInTable.value = "";
 				walkInName.value = "";
 				walkInPax.value = 2;
 				walkInPescetar.value = 0;
@@ -3074,11 +3165,10 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				walkInMessage.textContent = "";
 
 				const slot = walkInSlot.value;
-				const tableRaw = walkInTable.value.trim();
-				const cleanTableKey = tableRaw.replace(/[^0-9]/g, "");
+				const tableId = walkInTable.value;
 
-				if (!cleanTableKey) {
-					walkInMessage.textContent = "Indtast et bordnummer.";
+				if (!tableId) {
+					walkInMessage.textContent = "Vælg et bord.";
 					return;
 				}
 
@@ -3095,24 +3185,22 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					return;
 				}
 
-				// Tjek om bordnummeret allerede er i brug på dette hold.
-				const existing = (tables[slot] && tables[slot][cleanTableKey]) || null;
-				if (existing) {
-					const existingName = existing.name || "bord uden navn";
-					const confirmed = window.confirm(
-						`Bord ${cleanTableKey} er allerede i brug på dette hold (${existingName}). Vil du åbne det eksisterende bord i stedet?`,
-					);
-					if (confirmed) {
-						closeWalkInForm();
-						closeReservations();
-						if (activeView !== "tables") setView("tables");
-						if (slot !== selectedSlotKey) {
-							selectedSlotKey = slot;
-							renderTimeSlotTabs();
-							renderTables();
-						}
-						openModal(cleanTableKey);
+				const combined = combinedTables.find((c) => c.id === tableId);
+				if (combined) {
+					if (!isCombinedTableFree(slot, combined)) {
+						walkInMessage.textContent = "Det kombinerede bord er ikke længere ledigt. Vælg et andet.";
+						populateWalkInTableOptions();
+						return;
 					}
+				} else if (isTableInUse(slot, tableId)) {
+					walkInMessage.textContent = "Bordet er ikke længere ledigt. Vælg et andet.";
+					populateWalkInTableOptions();
+					return;
+				}
+
+				const maxPax = combined ? combined.maxPax : tableMaxPax[tableId] || 0;
+				if (maxPax && guests > maxPax) {
+					walkInMessage.textContent = `Bordet kan maks. have ${maxPax} gæster.`;
 					return;
 				}
 
@@ -3141,15 +3229,15 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 					completedAt: null,
 					isWalkIn: true,
 				};
+				if (combined) tableData.isCombined = true;
 
-				tables[slot] = { ...(tables[slot] || {}), [cleanTableKey]: tableData };
+				tables[slot] = { ...(tables[slot] || {}), [tableId]: tableData };
 
 				try {
 					if (window.database) {
-						await update(ref(window.database), { [`tables/${slot}/${cleanTableKey}`]: tableData });
+						await update(ref(window.database), { [`tables/${slot}/${tableId}`]: tableData });
 					}
 
-					// Skift til det rigtige hold og vis bordoversigten.
 					if (activeView !== "tables") setView("tables");
 					if (slot !== selectedSlotKey) {
 						selectedSlotKey = slot;
@@ -3164,7 +3252,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				}
 			}
 
-			// Fjerner et walk-in bord helt – inkl. dets ventende ordrer i alle køer.
 			async function deleteWalkInTable() {
 				if (!activeTableId) return;
 				const table = getActiveTable();
@@ -3212,7 +3299,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				}
 			}
 
-			/* ---- Drikkekort-editor (admin, i Opsætning) ---- */
+			/* ---- Drikkekort-editor ---- */
 
 			function openDrinkCatalogEditor() {
 				renderDrinkCatalogEditor();
@@ -3466,7 +3553,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 
                 <div class="rounded-xl bg-slate-100 p-3 text-sm text-slate-700">
                     <p class="font-bold">Walk-in borde</p>
-                    <p class="mt-1">Kommer der gæster uden reservation, åbner vært <strong>📅 Find en reservation</strong> og trykker <strong>+ Tilføj walk-in</strong>. Udfyld hold, bordnummer og antal pax — så er bordet oprettet og klar til tjenerne.</p>
+                    <p class="mt-1">Kommer der gæster uden reservation, åbner vært <strong>📅 Find en reservation</strong> og trykker <strong>+ Tilføj walk-in</strong>. Udfyld hold, bord, navn og antal pax — så er bordet oprettet og klar til tjenerne.</p>
                 </div>
 
                 <div class="rounded-xl bg-violet-50 p-3 text-sm text-violet-900 ring-1 ring-violet-200">
@@ -3497,16 +3584,17 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
                     <ol class="space-y-1.5 text-sm text-slate-700">
                         <li><strong>1.</strong> Åbn <strong>📅 Find en reservation</strong>.</li>
                         <li><strong>2.</strong> Tryk <strong>+ Tilføj walk-in</strong> øverst.</li>
-                        <li><strong>3.</strong> Vælg hold, indtast bordnummer og antal gæster (evt. navn og note).</li>
-                        <li><strong>4.</strong> Tryk <strong>Opret bord</strong>. Gæsterne er nu markeret ankommet, og tjenerne kan se dem i oversigten.</li>
+                        <li><strong>3.</strong> Vælg hold, bord og skriv gæstens navn.</li>
+                        <li><strong>4.</strong> Indtast antal pax (og evt. pescetarer, velkomstdrink, vinmenu).</li>
+                        <li><strong>5.</strong> Tryk <strong>Opret bord</strong>. Gæsterne er nu markeret ankommet.</li>
                     </ol>
                 </div>
 
                 <div>
                     <h3 class="mb-2 text-sm font-bold text-slate-800">Godt at vide</h3>
                     <ul class="space-y-1.5 text-sm text-slate-700">
-                        <li>• Fanebladene i modalen filtrerer på hold. "Alle hold" vælges automatisk, når du søger.</li>
-                        <li>• Hvis bordet står med 0 gæster, får du en fejlbesked — bed bookingen rette antallet først.</li>
+                        <li>• Kun ledige borde vises i walk-in dropdown'en, grupperet pr. lokale.</li>
+                        <li>• Kombinerede borde (fx 101+102) vises som ét valg, men kun hvis begge enkeltborde er ledige.</li>
                         <li>• Walk-in borde kan fjernes igen ved at åbne bordet og trykke "Fjern walk-in bord" nederst.</li>
                         <li>• Under rush: dobbelttjek bordnummeret mod bordskiltet.</li>
                     </ul>
@@ -3792,25 +3880,25 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
                 <div>
                     <h3 class="mb-2 text-sm font-bold text-slate-800">Sådan opretter du et walk-in bord</h3>
                     <ol class="space-y-1.5 text-sm text-slate-700">
-    <li><strong>1.</strong> Åbn <strong>📅 Find en reservation</strong>.</li>
-    <li><strong>2.</strong> Tryk <strong>+ Tilføj walk-in</strong> øverst i modalen.</li>
-    <li><strong>3.</strong> Vælg <strong>hold</strong> (fx 17:30).</li>
-    <li><strong>4.</strong> Indtast <strong>bordnummer</strong> — du kan vælge fra listen over kendte borde eller taste et nyt.</li>
-    <li><strong>5.</strong> Skriv et <strong>navn</strong> — det bruges til at finde bordet ved betaling.</li>
-    <li><strong>6.</strong> Indtast <strong>antal gæster</strong>, evt. hvor mange der er pescetarer, og forudbestilte drikkevarer (velkomstdrink, vinmenu, vin/pescetar).</li>
-    <li><strong>7.</strong> Skriv evt. en note.</li>
-    <li><strong>8.</strong> Tryk <strong>Opret bord</strong>.</li>
-</ol>
+                        <li><strong>1.</strong> Åbn <strong>📅 Find en reservation</strong>.</li>
+                        <li><strong>2.</strong> Tryk <strong>+ Tilføj walk-in</strong> øverst i modalen.</li>
+                        <li><strong>3.</strong> Vælg <strong>hold</strong> (fx 17:30).</li>
+                        <li><strong>4.</strong> Vælg <strong>bord</strong> i dropdown'en — kun ledige borde vises, grupperet pr. lokale, med bordskilt-nummer og maks pax.</li>
+                        <li><strong>5.</strong> Skriv et <strong>navn</strong> — det bruges til at finde bordet ved betaling.</li>
+                        <li><strong>6.</strong> Indtast <strong>antal gæster</strong>, evt. hvor mange der er pescetarer, og forudbestilte drikkevarer (velkomstdrink, vinmenu, vin/pescetar).</li>
+                        <li><strong>7.</strong> Skriv evt. en note.</li>
+                        <li><strong>8.</strong> Tryk <strong>Opret bord</strong>.</li>
+                    </ol>
+                </div>
+
+                <div>
+                    <h3 class="mb-2 text-sm font-bold text-slate-800">Kombinerede borde (fx 101+102)</h3>
+                    <p class="text-sm text-slate-700">Nogle borde kan slås sammen til et større bord. De vises som ét samlet valg i dropdown'en ("Bord 101 + 102 · maks 4 pax (sammenslået)"), men <strong>kun hvis begge enkeltborde er ledige</strong>. Er blot ét af dem optaget, forsvinder det kombinerede valg, og de enkelte borde kan heller ikke vælges.</p>
                 </div>
 
                 <div class="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
                     <p class="font-bold">Bordet starter som "Ankommet"</p>
                     <p class="mt-1">Gæsterne er jo allerede til stede, så bordet markeres automatisk som ankommet. Tjenerne kan straks begynde at tage imod bestillinger.</p>
-                </div>
-
-                <div>
-                    <h3 class="mb-2 text-sm font-bold text-slate-800">Hvis bordnummeret allerede er i brug</h3>
-                    <p class="text-sm text-slate-700">Appen advarer og tilbyder at åbne det eksisterende bord i stedet. Det forhindrer, at I ved en fejl overskriver en anden reservation.</p>
                 </div>
 
                 <div>
@@ -3841,7 +3929,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 
                 <div>
                     <h3 class="mb-1 text-sm font-bold text-slate-800">3. Hvis en køkken- eller bar-ordre aldrig bliver trykket</h3>
-                    <p class="text-sm text-slate-700">Ordren bliver liggende i køen. Hold-fanebladene i toppen blinker rødt, hvis der er ventende ordrer på et hold, du ikke selv kigger på.</p>
+                    <p class="text-sm text-slate-700">Ordren bliver liggende i køen. Hold-fanebladene i topen blinker rødt, hvis der er ventende ordrer på et hold, du ikke selv kigger på.</p>
                 </div>
 
                 <div>
@@ -3882,7 +3970,8 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
                         </thead>
                         <tbody class="divide-y divide-slate-100">
                             <tr><td class="px-3 py-2">Markér gæst ankommet</td><td class="px-3 py-2 font-bold">Vært</td><td class="px-3 py-2">📅 Find en reservation</td></tr>
-                            <tr><td class="px-3 py-2">Opret walk-in bord</td><td class="px-3 py-2 font-bold">Vært</td><td class="px-3 py-2">📅 Find en reservation → + Tilføj walk-in</td></tr>                            <tr><td class="px-3 py-2">Server velkomstdrink</td><td class="px-3 py-2 font-bold">Tjener</td><td class="px-3 py-2">🍽️ Borde → bordet</td></tr>
+                            <tr><td class="px-3 py-2">Opret walk-in bord</td><td class="px-3 py-2 font-bold">Vært</td><td class="px-3 py-2">📅 Find en reservation → + Tilføj walk-in</td></tr>
+                            <tr><td class="px-3 py-2">Server velkomstdrink</td><td class="px-3 py-2 font-bold">Tjener</td><td class="px-3 py-2">🍽️ Borde → bordet</td></tr>
                             <tr><td class="px-3 py-2">Tilføj ekstra drikkevarer</td><td class="px-3 py-2 font-bold">Tjener</td><td class="px-3 py-2">🍽️ Borde → bordet</td></tr>
                             <tr><td class="px-3 py-2">Lav drikkevare færdig</td><td class="px-3 py-2 font-bold">Bar</td><td class="px-3 py-2">🍹 Bar → Klar</td></tr>
                             <tr><td class="px-3 py-2">Bestil hovedret</td><td class="px-3 py-2 font-bold">Tjener</td><td class="px-3 py-2">🍽️ Borde → bordet</td></tr>
@@ -3890,7 +3979,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
                             <tr><td class="px-3 py-2">Tryk "Kør" på runner-siden</td><td class="px-3 py-2 font-bold">Ordreansvarlig</td><td class="px-3 py-2">🏃 Runner → Kør</td></tr>
                             <tr><td class="px-3 py-2">Bestil dessert</td><td class="px-3 py-2 font-bold">Tjener</td><td class="px-3 py-2">🍽️ Borde → bordet</td></tr>
                             <tr><td class="px-3 py-2">Afslut bord</td><td class="px-3 py-2 font-bold">Tjener</td><td class="px-3 py-2">🍽️ Borde → bordet</td></tr>
-                            <tr><td class="px-3 py-2">Nulstil dag</td><td class="px-3 py-2 font-weight-bold">Ordreansvarlig</td><td class="px-3 py-2">⚙️ Opsætning</td></tr>
+                            <tr><td class="px-3 py-2">Nulstil dag</td><td class="px-3 py-2 font-bold">Ordreansvarlig</td><td class="px-3 py-2">⚙️ Opsætning</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -4147,7 +4236,7 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			}
 
 			/* ----------------------------------------------------------------------------
-						   13. EVENT-BINDINGER
+						   EVENT-BINDINGER
 						---------------------------------------------------------------------------- */
 
 			document.querySelectorAll(".status-button").forEach((button) =>
@@ -4183,15 +4272,14 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			});
 			document.addEventListener("keydown", (event) => {
 				if (event.key !== "Escape") return;
-				if (!reservationsModal.classList.contains("hidden")) closeReservations();
+				if (!walkInModal.classList.contains("hidden")) closeWalkInForm();
+				else if (!reservationsModal.classList.contains("hidden")) closeReservations();
 				else if (!drinksPickerModal.classList.contains("hidden")) closeDrinksPicker();
 				else if (!drinkCatalogModal.classList.contains("hidden")) closeDrinkCatalogEditor();
 				else if (!guideModal.classList.contains("hidden")) closeGuide();
-				else if (!walkInModal.classList.contains("hidden")) closeWalkInForm();
 				else closeModal();
 			});
 
-			// Admin-menuen i toppen.
 			const adminMenuToggle = document.querySelector("#adminMenuToggle");
 			const adminMenu = document.querySelector("#adminMenu");
 			function closeAdminMenu() {
@@ -4210,7 +4298,6 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 				if (!adminMenu.contains(event.target) && event.target !== adminMenuToggle) closeAdminMenu();
 			});
 
-			// Opsætning.
 			document.querySelector("#settingsToggle").addEventListener("click", () => {
 				closeAdminMenu();
 				openSettings();
@@ -4256,12 +4343,11 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			walkInModal.addEventListener("click", (event) => {
 				if (event.target === walkInModal) closeWalkInForm();
 			});
-			walkInTable.addEventListener("keydown", (event) => {
-				if (event.key === "Enter") {
-					event.preventDefault();
-					saveWalkInForm();
-				}
+			walkInSlot.addEventListener("change", () => {
+				populateWalkInTableOptions();
+				walkInTable.value = "";
 			});
+			walkInTable.addEventListener("change", onWalkInTableChange);
 
 			// Guide.
 			document.querySelector("#guideToggle").addEventListener("click", () => {
@@ -4284,14 +4370,13 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 			document.querySelector("#saveImport").addEventListener("click", saveImport);
 			document.querySelector("#clearAllReservations").addEventListener("click", clearAllReservations);
 
-			// Skift mellem bordoversigt, køkken, bar og runner.
 			document.querySelector("#tablesToggle").addEventListener("click", () => setView("tables"));
 			document.querySelector("#kitchenToggle").addEventListener("click", () => setView("kitchen"));
 			document.querySelector("#barToggle").addEventListener("click", () => setView("bar"));
 			document.querySelector("#runnerToggle").addEventListener("click", () => setView("runner"));
 
 			/* ----------------------------------------------------------------------------
-						   14. OPSTART + FIREBASE-LYTTERE
+						   OPSTART + FIREBASE-LYTTERE
 						---------------------------------------------------------------------------- */
 
 			renderTimeSlotTabs();
@@ -4369,6 +4454,27 @@ Konverter den vedhæftede PDF med reservationer til dette JSON-format. Hver rese
 						if (activeView === "bar") renderBar();
 						if (activeView === "runner") renderRunner();
 						if (!reservationsModal.classList.contains("hidden")) renderReservationsList();
+					});
+
+					onValue(ref(window.database, "settings/tableMaxPax"), (snapshot) => {
+						const saved = snapshot.val();
+						if (saved && typeof saved === "object" && Object.keys(saved).length) {
+							tableMaxPax = { ...tableMaxPax, ...saved };
+						}
+						renderTables();
+					});
+
+					onValue(ref(window.database, "settings/combinedTables"), (snapshot) => {
+						const saved = snapshot.val();
+						if (Array.isArray(saved) && saved.length) {
+							combinedTables = saved.map((c) => ({
+								id: c.id || (c.tables ? c.tables.join("") : ""),
+								label: c.label || (c.tables ? c.tables.join("+") : ""),
+								tables: Array.isArray(c.tables) ? c.tables : [],
+								maxPax: c.maxPax || 0,
+							}));
+						}
+						renderTables();
 					});
 
 					onValue(ref(window.database, "settings/drinkCategories"), (snapshot) => {
