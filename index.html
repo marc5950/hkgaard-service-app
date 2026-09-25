@@ -80,25 +80,24 @@
 			<nav id="timeSlotTabs" class="mb-6 flex flex-wrap gap-2" aria-label="Vælg hold"></nav>
 
 			<div id="statusLegend" class="mb-6 flex flex-wrap gap-2" aria-label="Statusforklaring">
-				<span class="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-bold text-white">Antal borde: <strong id="legendTotal">0</strong></span>
-				<span class="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-500 ring-1 ring-slate-300"
-					>Færdige borde: <strong id="legendFinished">0</strong></span
-				>
+				<span
+					class="flex shrink-0 items-center gap-1.5 rounded-full bg-slate-900 px-2.5 py-1 text-xs font-bold text-white"
+					title="Antal borde · heraf færdige">
+					<span class="text-white/70">Antal borde:</span>
+					<strong id="legendTotal">0</strong>
+					<span class="text-white/50">·</span>
+					<span id="legendFinished">0</span>
+					<span class="text-white/70">færdige</span>
+				</span>
 				<span class="rounded-full bg-fuchsia-100 px-3 py-1.5 text-xs font-bold text-fuchsia-800"
-					><span class="rounded-full bg-white/80 px-1.5 py-0.5 shadow-sm ring-1 ring-black/10">🥂</span> Velkomstdrinks:
+					><span class="rounded-full bg-white/80 px-1.5 py-0.5 shadow-sm ring-1 ring-black/10">🥂</span> G&T:
 					<strong id="welcomeDrinkTotal">0</strong></span
 				>
-				<span class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700">Grå · Ledigt: <strong id="legendEmpty">0</strong></span>
-				<span class="rounded-full bg-rose-100 px-3 py-1.5 text-xs font-bold text-rose-800"
-					>Rød · Venter forret: <strong id="legendArrived">0</strong></span
-				>
-				<span class="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-800"
-					>Gul · Forret: <strong id="legendStarter">0</strong></span
-				>
-				<span class="rounded-full bg-sky-100 px-3 py-1.5 text-xs font-bold text-sky-800">Blå · Hovedret: <strong id="legendMain">0</strong></span>
-				<span class="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-800"
-					>Grøn · Dessert: <strong id="legendDessert">0</strong></span
-				>
+				<span class="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700">Ledigt: <strong id="legendEmpty">0</strong></span>
+				<span class="rounded-full bg-rose-100 px-3 py-1.5 text-xs font-bold text-rose-800">Venter forret: <strong id="legendArrived">0</strong></span>
+				<span class="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-800">Forret: <strong id="legendStarter">0</strong></span>
+				<span class="rounded-full bg-sky-100 px-3 py-1.5 text-xs font-bold text-sky-800">Hovedret: <strong id="legendMain">0</strong></span>
+				<span class="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-800">Dessert: <strong id="legendDessert">0</strong></span>
 			</div>
 
 			<nav

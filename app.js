@@ -417,7 +417,7 @@ function renderTimeSlotTabs() {
 						: "bg-emerald-100 text-emerald-700 group-hover:bg-emerald-100 group-active:bg-emerald-200"
 				}">Nu</span>`
 			: "";
-		return `<button data-slot="${key}" class="group flex flex-col items-center gap-1 rounded-xl px-4 py-2.5 text-sm font-bold transition ${colorClasses} ${ringClasses} ${needsAttention ? "time-slot-tab-alert" : ""}"><span>${slot}${nowBadge}${count ? ` · ${count} borde` : ""}</span></button>`;
+		return `<button data-slot="${key}" class="group flex flex-col items-center gap-1 rounded-xl px-3 py-1.5 sm:px-4 sm:py-2 text-sm font-bold transition ${colorClasses} ${ringClasses} ${needsAttention ? "time-slot-tab-alert" : ""}"><span>${slot}${nowBadge}${count ? ` · ${count} borde` : ""}</span></button>`;
 	}).join("");
 	timeSlotTabs.querySelectorAll("[data-slot]").forEach((button) =>
 		button.addEventListener("click", () => {
