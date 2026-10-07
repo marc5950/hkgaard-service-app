@@ -8,6 +8,17 @@ body {
 	font-family: "Trebuchet MS", "Segoe UI", sans-serif;
 }
 
+/* Forhindre dobbelt-tap-zoom på telefon/tablet */
+html,
+body,
+button,
+select,
+input,
+textarea,
+a {
+	touch-action: manipulation;
+}
+
 @layer base {
 	button,
 	select,
