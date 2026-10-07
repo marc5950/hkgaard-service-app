@@ -230,6 +230,10 @@ const collapsedRooms = new Set();
 
 let reservationsSlotFilter = null;
 
+let roomReservations = {};
+let activeSettingsTab = "bordskilte";
+let editingRoomReservationId = null;
+
 /* ----------------------------------------------------------------------------
 						   DOM-REFERENCER
 						---------------------------------------------------------------------------- */
@@ -300,6 +304,27 @@ const settingsRows = document.querySelector("#roomSettingsRows");
 const tableRoomRows = document.querySelector("#tableRoomRows");
 const tablePaxSummary = document.querySelector("#tablePaxSummary");
 const settingsMessage = document.querySelector("#settingsMessage");
+const settingsTabs = document.querySelector("#settingsTabs");
+const settingsTabBordskilte = document.querySelector("#settingsTabBordskilte");
+const settingsTabDrikkekort = document.querySelector("#settingsTabDrikkekort");
+const settingsTabSelskaber = document.querySelector("#settingsTabSelskaber");
+const settingsRoomReservationsList = document.querySelector("#settingsRoomReservationsList");
+
+const roomReservationModal = document.querySelector("#roomReservationModal");
+const roomReservationTitle = document.querySelector("#roomReservationTitle");
+const roomReservationRoom = document.querySelector("#roomReservationRoom");
+const roomReservationDate = document.querySelector("#roomReservationDate");
+const roomReservationStartHour = document.querySelector("#roomReservationStartHour");
+const roomReservationStartMinute = document.querySelector("#roomReservationStartMinute");
+const roomReservationEndHour = document.querySelector("#roomReservationEndHour");
+const roomReservationEndMinute = document.querySelector("#roomReservationEndMinute");
+const roomReservationTitleInput = document.querySelector("#roomReservationTitleInput");
+const roomReservationGuests = document.querySelector("#roomReservationGuests");
+const roomReservationNote = document.querySelector("#roomReservationNote");
+const roomReservationMessage = document.querySelector("#roomReservationMessage");
+const deleteRoomReservationBtn = document.querySelector("#deleteRoomReservation");
+const todayReservationsBadge = document.querySelector("#todayReservationsBadge");
+const todayReservationsCount = document.querySelector("#todayReservationsCount");
 
 const importModal = document.querySelector("#importModal");
 const importJson = document.querySelector("#importJson");
@@ -331,6 +356,21 @@ function escapeHtml(value) {
 
 function toQuantity(value) {
 	return Math.max(0, Number(value) || 0);
+}
+
+function todayIsoDate() {
+	const now = new Date();
+	return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function formatDanishDate(isoDate) {
+	const [year, month, day] = String(isoDate).split("-");
+	return day && month && year ? `${day}.${month}.${year}` : String(isoDate);
+}
+
+function timeToMinutes(time) {
+	const [hours, minutes] = String(time).split(":").map(Number);
+	return (hours || 0) * 60 + (minutes || 0);
 }
 
 function getDrinks(table) {
@@ -665,6 +705,10 @@ function renderTimeSlotTabs() {
 	);
 }
 
+function selectedSlotLabel() {
+	return TIME_SLOTS.find((slot) => slotKey(slot) === selectedSlotKey) || TIME_SLOTS[0];
+}
+
 function computeRoomGroups() {
 	const slotTables = tables[selectedSlotKey] || {};
 	const tableNumbers = Object.keys(slotTables);
@@ -687,7 +731,8 @@ function computeRoomGroups() {
 	groups.forEach((room) => room.tableIds.sort(compareByDisplayNumber));
 	unassigned.tableIds.sort(compareByDisplayNumber);
 
-	const result = groups.filter((room) => room.tableIds.length > 0);
+	const slotLabel = selectedSlotLabel();
+	const result = groups.filter((room) => room.tableIds.length > 0 || hasReservationForRoomAndSlot(room.id, slotLabel));
 	if (unassigned.tableIds.length) result.unshift(unassigned);
 	return result;
 }
@@ -837,6 +882,7 @@ function renderTableRoomRows() {
 function openSettings() {
 	renderSettingsRows();
 	renderTableRoomRows();
+	renderSettingsTabs();
 	settingsMessage.textContent = "";
 	settingsModal.classList.remove("hidden");
 	settingsModal.classList.add("flex");
@@ -910,6 +956,219 @@ async function resetTableRoomAssignments() {
 		console.error(error);
 		settingsMessage.textContent = "Kunne ikke nulstille bordfordelingen.";
 	}
+}
+
+/* ----------------------------------------------------------------------------
+						   SELSKABER (LOKALERESERVATIONER)
+---------------------------------------------------------------------------- */
+
+function reservationOverlapsSlot(reservation, slotLabel) {
+	if (!reservation || reservation.date !== todayIsoDate()) return false;
+	const slotMinutes = timeToMinutes(slotLabel);
+	return slotMinutes >= timeToMinutes(reservation.startTime) && slotMinutes <= timeToMinutes(reservation.endTime);
+}
+
+function getReservationForRoomAndSlot(roomId, slotLabel) {
+	return (
+		Object.values(roomReservations).find((reservation) => reservation.roomId === roomId && reservationOverlapsSlot(reservation, slotLabel)) || null
+	);
+}
+
+function hasReservationForRoomAndSlot(roomId, slotLabel) {
+	return Boolean(getReservationForRoomAndSlot(roomId, slotLabel));
+}
+
+function getRoomNameById(roomId) {
+	return (settingsRooms.find((room) => room.id === roomId) || {}).name || roomId;
+}
+
+function renderRoomReservationsList() {
+	const today = todayIsoDate();
+	const upcoming = Object.entries(roomReservations)
+		.map(([id, reservation]) => ({ id, ...reservation }))
+		.filter((reservation) => reservation.date >= today)
+		.sort((a, b) => (a.date === b.date ? timeToMinutes(a.startTime) - timeToMinutes(b.startTime) : a.date.localeCompare(b.date)));
+
+	if (!upcoming.length) {
+		settingsRoomReservationsList.innerHTML = `<p class="text-sm text-slate-400">Ingen kommende selskaber.</p>`;
+		return;
+	}
+
+	settingsRoomReservationsList.innerHTML = upcoming
+		.map(
+			(reservation) => `<div class="flex items-start gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2">
+				<div class="min-w-0 flex-1">
+					<p class="text-sm font-bold text-violet-950">🎉 ${escapeHtml(getRoomNameById(reservation.roomId))} · ${escapeHtml(formatDanishDate(reservation.date))} · ${escapeHtml(reservation.startTime)}–${escapeHtml(reservation.endTime)}${reservation.date === today ? ` <span class="ml-1 rounded-full bg-violet-200 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-800">i dag</span>` : ""}</p>
+					<p class="text-xs font-semibold text-violet-900">${escapeHtml(reservation.title)} · ${toQuantity(reservation.guests)} pax</p>
+					${reservation.note ? `<p class="mt-0.5 truncate text-xs text-violet-800">${escapeHtml(reservation.note)}</p>` : ""}
+				</div>
+				<button data-edit-reservation="${reservation.id}" class="shrink-0 rounded-lg border border-violet-300 bg-white px-2 py-1 text-xs font-bold text-violet-700 hover:bg-violet-100">Rediger</button>
+				<button data-delete-reservation="${reservation.id}" class="shrink-0 rounded-lg border border-rose-200 bg-white px-2 py-1 text-xs font-bold text-rose-700 hover:bg-rose-50">Slet</button>
+			</div>`,
+		)
+		.join("");
+
+	settingsRoomReservationsList
+		.querySelectorAll("[data-edit-reservation]")
+		.forEach((button) => button.addEventListener("click", () => openRoomReservationForm(button.dataset.editReservation)));
+	settingsRoomReservationsList
+		.querySelectorAll("[data-delete-reservation]")
+		.forEach((button) => button.addEventListener("click", () => deleteRoomReservation(button.dataset.deleteReservation)));
+}
+
+function fillTimeSelects(hourSelect, minuteSelect, time) {
+	const [hours, minutes] = String(time || "").split(":");
+	hourSelect.innerHTML = Array.from({ length: 24 }, (_, h) => {
+		const value = String(h).padStart(2, "0");
+		return `<option value="${value}" ${value === hours ? "selected" : ""}>${value}</option>`;
+	}).join("");
+	minuteSelect.innerHTML = Array.from({ length: 12 }, (_, m) => {
+		const value = String(m * 5).padStart(2, "0");
+		return `<option value="${value}" ${value === minutes ? "selected" : ""}>${value}</option>`;
+	}).join("");
+}
+
+function readTimeSelects(hourSelect, minuteSelect) {
+	return hourSelect.value && minuteSelect.value !== "" ? `${hourSelect.value}:${minuteSelect.value}` : "";
+}
+
+function openRoomReservationForm(id = null) {
+	editingRoomReservationId = id;
+	const reservation = id ? roomReservations[id] : null;
+
+	roomReservationTitle.textContent = reservation ? "Rediger selskab" : "Tilføj selskab";
+	roomReservationRoom.innerHTML = settingsRooms
+		.map(
+			(room) =>
+				`<option value="${escapeHtml(room.id)}" ${reservation && reservation.roomId === room.id ? "selected" : ""}>${escapeHtml(room.name)}</option>`,
+		)
+		.join("");
+	roomReservationDate.value = reservation ? reservation.date : todayIsoDate();
+	fillTimeSelects(roomReservationStartHour, roomReservationStartMinute, reservation ? reservation.startTime : "16:00");
+	fillTimeSelects(roomReservationEndHour, roomReservationEndMinute, reservation ? reservation.endTime : "23:00");
+	roomReservationTitleInput.value = reservation ? reservation.title : "";
+	roomReservationGuests.value = reservation ? reservation.guests : "";
+	roomReservationNote.value = reservation ? reservation.note || "" : "";
+	deleteRoomReservationBtn.classList.toggle("hidden", !reservation);
+	roomReservationMessage.textContent = "";
+
+	roomReservationModal.classList.remove("hidden");
+	roomReservationModal.classList.add("flex");
+}
+
+function closeRoomReservationForm() {
+	editingRoomReservationId = null;
+	roomReservationModal.classList.add("hidden");
+	roomReservationModal.classList.remove("flex");
+}
+
+async function saveRoomReservationForm() {
+	const roomId = roomReservationRoom.value;
+	const date = roomReservationDate.value;
+	const startTime = readTimeSelects(roomReservationStartHour, roomReservationStartMinute);
+	const endTime = readTimeSelects(roomReservationEndHour, roomReservationEndMinute);
+	const title = roomReservationTitleInput.value.trim();
+	const guests = toQuantity(roomReservationGuests.value);
+	const note = roomReservationNote.value.trim();
+
+	if (!roomId || !date || !startTime || !endTime || !title || !guests) {
+		roomReservationMessage.textContent = "Udfyld lokale, dato, start, slut, titel og antal pax.";
+		return;
+	}
+	if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
+		roomReservationMessage.textContent = "Sluttidspunktet skal være efter starttidspunktet.";
+		return;
+	}
+	const overlap = Object.entries(roomReservations).find(
+		([id, reservation]) =>
+			id !== editingRoomReservationId &&
+			reservation.roomId === roomId &&
+			reservation.date === date &&
+			timeToMinutes(reservation.startTime) < timeToMinutes(endTime) &&
+			timeToMinutes(startTime) < timeToMinutes(reservation.endTime),
+	);
+	if (overlap) {
+		roomReservationMessage.textContent = `Lokalet er allerede reserveret ${overlap[1].startTime}–${overlap[1].endTime} denne dag.`;
+		return;
+	}
+
+	const id = editingRoomReservationId || push(ref(window.database, "roomReservations")).key;
+	const record = { roomId, date, startTime, endTime, title, guests, note, createdAt: roomReservations[id]?.createdAt || Date.now() };
+
+	roomReservationMessage.textContent = "Gemmer...";
+	roomReservations = { ...roomReservations, [id]: record };
+	renderTables();
+	renderRoomReservationsList();
+
+	try {
+		if (window.database) await update(ref(window.database), { [`roomReservations/${id}`]: record });
+		roomReservationMessage.textContent = "Gemt";
+		setTimeout(closeRoomReservationForm, 400);
+	} catch (error) {
+		console.error(error);
+		roomReservationMessage.textContent = "Kunne ikke gemme selskabet.";
+	}
+}
+
+async function deleteRoomReservation(id) {
+	const reservation = roomReservations[id];
+	if (!reservation) return;
+	if (!confirm(`Slet selskabet "${reservation.title}" (${getRoomNameById(reservation.roomId)} · ${formatDanishDate(reservation.date)})?`)) return;
+
+	const { [id]: removed, ...rest } = roomReservations;
+	roomReservations = rest;
+	renderTables();
+	renderRoomReservationsList();
+	if (editingRoomReservationId === id) closeRoomReservationForm();
+
+	try {
+		if (window.database) await update(ref(window.database), { [`roomReservations/${id}`]: null });
+		settingsMessage.textContent = "Selskab slettet";
+	} catch (error) {
+		console.error(error);
+		settingsMessage.textContent = "Kunne ikke slette selskabet.";
+	}
+}
+
+function renderTodayReservationsBadge() {
+	const today = todayIsoDate();
+	const count = Object.values(roomReservations).filter((reservation) => reservation.date === today).length;
+	todayReservationsCount.textContent = count;
+	todayReservationsBadge.classList.toggle("hidden", !count);
+	todayReservationsBadge.classList.toggle("flex", Boolean(count));
+}
+
+function cleanupExpiredRoomReservations() {
+	const today = todayIsoDate();
+	const expiredIds = Object.keys(roomReservations).filter((id) => roomReservations[id] && roomReservations[id].date < today);
+	if (!expiredIds.length) return;
+	expiredIds.forEach((id) => delete roomReservations[id]);
+	if (window.database) {
+		const removals = Object.fromEntries(expiredIds.map((id) => [`roomReservations/${id}`, null]));
+		update(ref(window.database), removals).catch((error) => console.error("Kunne ikke rydde gamle selskaber op:", error));
+	}
+}
+
+/* ----------------------------------------------------------------------------
+						   OPSÆTNING-TABS
+---------------------------------------------------------------------------- */
+
+function renderSettingsTabs() {
+	settingsTabs.querySelectorAll("[data-settings-tab]").forEach((button) => {
+		const isActive = button.dataset.settingsTab === activeSettingsTab;
+		button.className = `shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold ${
+			isActive ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+		}`;
+	});
+	settingsTabBordskilte.classList.toggle("hidden", activeSettingsTab !== "bordskilte");
+	settingsTabDrikkekort.classList.toggle("hidden", activeSettingsTab !== "drikkekort");
+	settingsTabSelskaber.classList.toggle("hidden", activeSettingsTab !== "selskaber");
+	if (activeSettingsTab === "selskaber") renderRoomReservationsList();
+}
+
+function switchSettingsTab(tabId) {
+	activeSettingsTab = tabId;
+	renderSettingsTabs();
 }
 
 async function resetAllTables() {
@@ -1165,6 +1424,7 @@ function renderTables() {
 	currentRoomGroups = computeRoomGroups();
 	renderRoomHotbar();
 	renderStatusLegend();
+	renderTodayReservationsBadge();
 	tablesGrid.innerHTML = currentRoomGroups.map((room) => renderRoomSection(room, slotTables)).join("") + renderFinishedList(slotTables);
 
 	tablesGrid.querySelectorAll("[data-table-id]").forEach((card) => card.addEventListener("click", () => openModal(card.dataset.tableId)));
@@ -1221,6 +1481,22 @@ function renderStatusLegend() {
 
 function renderRoomSection(room, slotTables) {
 	const isCollapsed = collapsedRooms.has(room.id);
+	const reservation = getReservationForRoomAndSlot(room.id, selectedSlotLabel());
+
+	if (reservation) {
+		return `<section id="room-${room.id}" class="room-section" aria-labelledby="room-heading-${room.id}">
+								<div class="mb-4 flex w-full items-center gap-3 text-left">
+									<span class="h-8 w-1.5 rounded-full ${room.line}"></span><span class="flex-1"><span id="room-heading-${room.id}" class="font-display text-3xl font-bold ${room.accent}">${escapeHtml(room.name)}</span><span class="ml-3 text-sm font-bold text-violet-500">Reserveret</span></span>
+								</div>
+								<div class="room-reservation-card rounded-xl border-2 border-violet-300 bg-violet-50 px-4 py-3 shadow-sm">
+									<p class="font-display text-lg font-bold text-violet-950">🎉 Reserveret til selskab</p>
+									<p class="mt-0.5 text-sm font-bold text-violet-900">${escapeHtml(reservation.title)} · ${toQuantity(reservation.guests)} pax</p>
+									<p class="text-xs font-semibold text-violet-700">${escapeHtml(reservation.startTime)} – ${escapeHtml(reservation.endTime)}</p>
+									${reservation.note ? `<p class="mt-2 border-t border-violet-200 pt-2 text-sm text-violet-900">${escapeHtml(reservation.note)}</p>` : ""}
+								</div>
+							</section>`;
+	}
+
 	const activeIds = room.tableIds.filter((id) => slotTables[id] && !slotTables[id].completedAt);
 	if (!activeIds.length) return "";
 	const cards = activeIds.map((id) => renderTableCard(id, slotTables[id])).join("");
@@ -3424,7 +3700,8 @@ modal.addEventListener("click", (event) => {
 });
 document.addEventListener("keydown", (event) => {
 	if (event.key !== "Escape") return;
-	if (!walkInModal.classList.contains("hidden")) closeWalkInForm();
+	if (!roomReservationModal.classList.contains("hidden")) closeRoomReservationForm();
+	else if (!walkInModal.classList.contains("hidden")) closeWalkInForm();
 	else if (!reservationsModal.classList.contains("hidden")) closeReservations();
 	else if (!drinksPickerModal.classList.contains("hidden")) closeDrinksPicker();
 	else if (!drinkCatalogModal.classList.contains("hidden")) closeDrinkCatalogEditor();
@@ -3487,6 +3764,21 @@ document.querySelector("#addRoom").addEventListener("click", () => {
 	renderSettingsRows();
 });
 
+// Opsætning-tabs.
+settingsTabs
+	.querySelectorAll("[data-settings-tab]")
+	.forEach((button) => button.addEventListener("click", () => switchSettingsTab(button.dataset.settingsTab)));
+
+// Selskaber (lokalerservationer).
+document.querySelector("#addRoomReservation").addEventListener("click", () => openRoomReservationForm());
+document.querySelector("#closeRoomReservation").addEventListener("click", closeRoomReservationForm);
+document.querySelector("#cancelRoomReservation").addEventListener("click", closeRoomReservationForm);
+document.querySelector("#saveRoomReservation").addEventListener("click", saveRoomReservationForm);
+deleteRoomReservationBtn.addEventListener("click", () => deleteRoomReservation(editingRoomReservationId));
+roomReservationModal.addEventListener("click", (event) => {
+	if (event.target === roomReservationModal) closeRoomReservationForm();
+});
+
 // Walk-in.
 document.querySelector("#openWalkInForm").addEventListener("click", openWalkInForm);
 document.querySelector("#closeWalkIn").addEventListener("click", closeWalkInForm);
@@ -3540,7 +3832,13 @@ setView(
 	window.location.hash === "#kokken" ? "kitchen" : window.location.hash === "#bar" ? "bar" : window.location.hash === "#runner" ? "runner" : "tables",
 );
 
+let lastRenderedDate = todayIsoDate();
+
 setInterval(() => {
+	if (todayIsoDate() !== lastRenderedDate) {
+		lastRenderedDate = todayIsoDate();
+		cleanupExpiredRoomReservations();
+	}
 	renderTimeSlotTabs();
 	renderTables();
 	if (activeView === "kitchen") renderKitchen();
@@ -3659,6 +3957,13 @@ if (hasFirebaseConfig) {
 			runnerOrders = snapshot.val() || {};
 			renderTimeSlotTabs();
 			if (activeView === "runner") renderRunner();
+		});
+
+		onValue(ref(window.database, "roomReservations"), (snapshot) => {
+			roomReservations = snapshot.val() || {};
+			cleanupExpiredRoomReservations();
+			renderTables();
+			if (!settingsModal.classList.contains("hidden")) renderRoomReservationsList();
 		});
 	} catch (error) {
 		console.error(error);

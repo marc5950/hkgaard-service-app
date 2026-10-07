@@ -19,6 +19,12 @@ a {
 	touch-action: manipulation;
 }
 
+/* Selskabsblok i bordoversigten (ren information, ikke klikbar) */
+.room-reservation-card {
+	cursor: default;
+	user-select: none;
+}
+
 @layer base {
 	button,
 	select,
