@@ -974,8 +974,20 @@ function getReservationForRoomAndSlot(roomId, slotLabel) {
 	);
 }
 
+function getUpcomingReservationForRoom(roomId, slotLabel) {
+	if (getReservationForRoomAndSlot(roomId, slotLabel)) return null;
+	const slotMinutes = timeToMinutes(slotLabel);
+	return (
+		Object.values(roomReservations)
+			.filter(
+				(reservation) => reservation.roomId === roomId && reservation.date === todayIsoDate() && timeToMinutes(reservation.startTime) > slotMinutes,
+			)
+			.sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime))[0] || null
+	);
+}
+
 function hasReservationForRoomAndSlot(roomId, slotLabel) {
-	return Boolean(getReservationForRoomAndSlot(roomId, slotLabel));
+	return Boolean(getReservationForRoomAndSlot(roomId, slotLabel) || getUpcomingReservationForRoom(roomId, slotLabel));
 }
 
 function getRoomNameById(roomId) {
@@ -1482,30 +1494,40 @@ function renderStatusLegend() {
 function renderRoomSection(room, slotTables) {
 	const isCollapsed = collapsedRooms.has(room.id);
 	const reservation = getReservationForRoomAndSlot(room.id, selectedSlotLabel());
+	const upcomingReservation = reservation ? null : getUpcomingReservationForRoom(room.id, selectedSlotLabel());
+	const shownReservation = reservation || upcomingReservation;
 
-	if (reservation) {
-		return `<section id="room-${room.id}" class="room-section" aria-labelledby="room-heading-${room.id}">
-								<div class="mb-4 flex w-full items-center gap-3 text-left">
-									<span class="h-8 w-1.5 rounded-full ${room.line}"></span><span class="flex-1"><span id="room-heading-${room.id}" class="font-display text-3xl font-bold ${room.accent}">${escapeHtml(room.name)}</span><span class="ml-3 text-sm font-bold text-violet-500">Reserveret</span></span>
-								</div>
-								<div class="room-reservation-card rounded-xl border-2 border-violet-300 bg-violet-50 px-4 py-3 shadow-sm">
+	const activeIds = room.tableIds.filter((id) => slotTables[id] && !slotTables[id].completedAt);
+	if (!activeIds.length && !shownReservation) return "";
+	const cards = activeIds.map((id) => renderTableCard(id, slotTables[id])).join("");
+
+	let countLabel = `<span class="ml-3 text-sm font-bold text-slate-400">${activeIds.length} borde</span>`;
+	if (reservation)
+		countLabel = `<span class="ml-3 text-sm font-bold text-violet-500">Reserveret til selskab</span>${activeIds.length ? `<span class="ml-2 text-xs font-bold text-rose-600">⚠ ${activeIds.length} borde</span>` : ""}`;
+	else if (upcomingReservation)
+		countLabel = `<span class="ml-3 text-sm font-bold text-slate-400">${activeIds.length} borde</span><span class="ml-2 text-xs font-bold text-slate-500">🎉 Kommende selskab</span>`;
+
+	const reservationBlock = shownReservation
+		? reservation
+			? `<div class="room-reservation-card mb-3 rounded-xl border-2 border-violet-300 bg-violet-50 px-4 py-3 shadow-sm">
 									<p class="font-display text-lg font-bold text-violet-950">🎉 Reserveret til selskab</p>
 									<p class="mt-0.5 text-sm font-bold text-violet-900">${escapeHtml(reservation.title)} · ${toQuantity(reservation.guests)} pax</p>
 									<p class="text-xs font-semibold text-violet-700">${escapeHtml(reservation.startTime)} – ${escapeHtml(reservation.endTime)}</p>
 									${reservation.note ? `<p class="mt-2 border-t border-violet-200 pt-2 text-sm text-violet-900">${escapeHtml(reservation.note)}</p>` : ""}
-								</div>
-							</section>`;
-	}
-
-	const activeIds = room.tableIds.filter((id) => slotTables[id] && !slotTables[id].completedAt);
-	if (!activeIds.length) return "";
-	const cards = activeIds.map((id) => renderTableCard(id, slotTables[id])).join("");
+								</div>`
+			: `<div class="room-reservation-card mb-3 rounded-xl border-2 border-slate-300 bg-slate-100 px-4 py-3 shadow-sm">
+									<p class="font-display text-lg font-bold text-slate-600">🎉 Kommende selskab</p>
+									<p class="mt-0.5 text-sm font-bold text-slate-700">${escapeHtml(upcomingReservation.title)} · ${toQuantity(upcomingReservation.guests)} pax</p>
+									<p class="text-xs font-semibold text-slate-500">${escapeHtml(upcomingReservation.startTime)} – ${escapeHtml(upcomingReservation.endTime)}</p>
+									${upcomingReservation.note ? `<p class="mt-2 border-t border-slate-300 pt-2 text-sm text-slate-600">${escapeHtml(upcomingReservation.note)}</p>` : ""}
+								</div>`
+		: "";
 
 	return `<section id="room-${room.id}" class="room-section" aria-labelledby="room-heading-${room.id}">
 								<button data-room-toggle="${room.id}" aria-expanded="${!isCollapsed}" class="mb-4 flex w-full items-center gap-3 text-left">
-									<span class="h-8 w-1.5 rounded-full ${room.line}"></span><span class="flex-1"><span id="room-heading-${room.id}" class="font-display text-3xl font-bold ${room.accent}">${escapeHtml(room.name)}</span><span class="ml-3 text-sm font-bold text-slate-400">${activeIds.length} borde</span></span><span class="text-xl text-slate-400">${isCollapsed ? "▸" : "▾"}</span>
+									<span class="h-8 w-1.5 rounded-full ${room.line}"></span><span class="flex-1"><span id="room-heading-${room.id}" class="font-display text-3xl font-bold ${room.accent}">${escapeHtml(room.name)}</span>${countLabel}</span><span class="text-xl text-slate-400">${isCollapsed ? "▸" : "▾"}</span>
 								</button>
-								<div class="room-table-grid ${isCollapsed ? "hidden" : "grid"} gap-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">${cards}</div>
+								<div class="${isCollapsed ? "hidden" : ""}">${reservationBlock}${cards ? `<div class="room-table-grid grid gap-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">${cards}</div>` : ""}</div>
 							</section>`;
 }
 
