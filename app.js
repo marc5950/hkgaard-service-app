@@ -1761,9 +1761,10 @@ function renderKitchenCourse(group, courseKey, courseOrders) {
 	const regularQuantity = isMain ? sumQuantity(false) : 0;
 	const pescetarianQuantity = isMain ? sumQuantity(true) : 0;
 
-	const waitedMinutes = minutesSince(Math.min(...courseOrders.map(([, order]) => order.createdAt || Date.now())));
+	const waitedSeconds = secondsSince(Math.min(...courseOrders.map(([, order]) => order.createdAt || Date.now())));
+	const waitedMinutes = Math.floor(waitedSeconds / 60);
 	const waitColors = waitedMinutes >= 20 ? "bg-rose-500 text-white" : waitedMinutes >= 10 ? "bg-yellow-500 text-white" : "bg-white/80 text-slate-700";
-	const waitBadge = `<span class="rounded-full px-2 py-1 text-xs font-bold ${waitColors}">${waitedMinutes} min</span>`;
+	const waitBadge = `<span class="rounded-full px-2 py-1 text-xs font-bold ${waitColors}">${formatDurationWithSeconds(waitedSeconds)}</span>`;
 
 	const paxLine = isMain
 		? `<p class="mt-1 text-4xl font-bold">${regularQuantity + pescetarianQuantity}<span class="ml-2 text-base font-normal">pax</span></p>${
@@ -1914,7 +1915,7 @@ function renderBarCard(group) {
 			([id, order]) => `<div class="flex items-center justify-between gap-2 rounded-lg bg-violet-50 px-3 py-2 ring-1 ring-violet-200">
 							<div class="min-w-0 flex-1">
 								<p class="truncate text-sm font-bold text-slate-900">${escapeHtml(order.itemName)}</p>
-								<p class="text-xs text-slate-500">${order.quantity} stk${order.categoryName ? ` · ${escapeHtml(order.categoryName)}` : ""}${order.createdAt ? ` · ${minutesSince(order.createdAt)} min` : ""}</p>
+								<p class="text-xs text-slate-500">${order.quantity} stk${order.categoryName ? ` · ${escapeHtml(order.categoryName)}` : ""}${order.createdAt ? ` · ${formatDurationWithSeconds(secondsSince(order.createdAt))}` : ""}</p>
 							</div>
 							<div class="flex shrink-0 items-center gap-1.5">
 								<button type="button" data-complete-bar-order="${id}" class="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-slate-700">Klar</button>
@@ -2000,9 +2001,10 @@ function renderRunnerCourse(group, courseKey, courseOrders) {
 			? `<p class="mt-2 text-base font-bold">${pescetarianQuantity} pescetar${regularQuantity ? ` · ${regularQuantity} klassisk` : ""}</p>`
 			: "";
 
-	const waitedMinutes = minutesSince(Math.min(...courseOrders.map(([, order]) => order.createdAt || Date.now())));
+	const waitedSeconds = secondsSince(Math.min(...courseOrders.map(([, order]) => order.createdAt || Date.now())));
+	const waitedMinutes = Math.floor(waitedSeconds / 60);
 	const waitColors = waitedMinutes >= 10 ? "bg-rose-500 text-white" : waitedMinutes >= 5 ? "bg-yellow-500 text-white" : "bg-white/80 text-slate-700";
-	const waitBadge = `<span class="rounded-full px-2 py-1 text-xs font-bold ${waitColors}">${waitedMinutes} min</span>`;
+	const waitBadge = `<span class="rounded-full px-2 py-1 text-xs font-bold ${waitColors}">${formatDurationWithSeconds(waitedSeconds)}</span>`;
 
 	const unit = courseKey === "drink" ? "stk" : "pax";
 
@@ -3863,6 +3865,17 @@ setView(
 
 let lastRenderedDate = todayIsoDate();
 
+const barDate = document.querySelector("#barDate");
+const barTime = document.querySelector("#barTime");
+
+function renderDateTimeBar() {
+	const now = new Date();
+	if (barDate) barDate.textContent = now.toLocaleDateString("da-DK", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+	if (barTime) barTime.textContent = now.toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+renderDateTimeBar();
+setInterval(renderDateTimeBar, 1000);
+
 setInterval(() => {
 	if (todayIsoDate() !== lastRenderedDate) {
 		lastRenderedDate = todayIsoDate();
@@ -3873,7 +3886,7 @@ setInterval(() => {
 	if (activeView === "kitchen") renderKitchen();
 	if (activeView === "bar") renderBar();
 	if (activeView === "runner") renderRunner();
-}, 10000);
+}, 1000);
 
 const hasFirebaseConfig = !firebaseConfig.apiKey.startsWith("INDSAET") && !firebaseConfig.projectId.startsWith("DIT-");
 
@@ -3885,7 +3898,6 @@ if (hasFirebaseConfig) {
 		onValue(ref(window.database, "tables"), (snapshot) => {
 			const value = snapshot.val() || {};
 			tables = Object.fromEntries(TIME_SLOTS.map((slot) => [slotKey(slot), value[slotKey(slot)] || {}]));
-
 			if (!hasAutoSelectedSlot) {
 				hasAutoSelectedSlot = true;
 				const firstWithData = TIME_SLOTS.map(slotKey).find((key) => Object.keys(tables[key]).length > 0);

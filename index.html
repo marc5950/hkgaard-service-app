@@ -108,15 +108,24 @@
 
 			<nav
 				id="roomHotbar"
-				class="fixed inset-x-0 bottom-0 z-40 flex flex-wrap justify-center gap-2 border-t border-slate-200 bg-white/95 px-3 py-3 shadow-[0_-8px_24px_rgba(23,32,42,.12)] backdrop-blur sm:px-6"
+				class="fixed inset-x-0 bottom-6 sm:bottom-7 z-40 flex flex-wrap justify-center gap-2 border-t border-slate-200 bg-white/95 px-3 py-3 shadow-[0_-8px_24px_rgba(23,32,42,.12)] backdrop-blur sm:px-6"
 				aria-label="Vælg lokale">
 				<div id="roomHotbarButtons" class="flex flex-wrap justify-center gap-2"></div>
 			</nav>
 
+			<!-- ===== Fast dato/klokkeslæt-bar nederst ===== -->
+			<div
+				id="dateTimeBar"
+				class="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex items-center justify-center gap-2 border-t border-slate-200 bg-white/90 px-3 py-1 text-[11px] font-bold text-slate-500 backdrop-blur-sm sm:gap-3 sm:py-1.5 sm:text-xs">
+				<span id="barDate"></span>
+				<span aria-hidden="true">·</span>
+				<span id="barTime" class="tabular-nums"></span>
+			</div>
+
 			<button
 				id="reservationsToggle"
 				type="button"
-				class="fixed bottom-9 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-2xl text-white shadow-lg transition hover:bg-slate-700 sm:right-6"
+				class="fixed bottom-14 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-2xl text-white shadow-lg transition hover:bg-slate-700 sm:right-6"
 				aria-label="Find en reservation"
 				title="Find en reservation">
 				📅
