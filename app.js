@@ -855,14 +855,21 @@ function renderTableRoomRows() {
 	}
 
 	const paxCounts = {};
+	const paxBookedCounts = {};
 	numbers.forEach((number) => {
 		const pax = getTablePaxHint(number);
-		if (pax) paxCounts[pax] = (paxCounts[pax] || 0) + 1;
+		if (!pax) return;
+		paxCounts[pax] = (paxCounts[pax] || 0) + 1;
+		const isBookedToday = getTableSlotHints(number).length > 0;
+		if (isBookedToday) paxBookedCounts[pax] = (paxBookedCounts[pax] || 0) + 1;
 	});
 	tablePaxSummary.innerHTML = Object.keys(paxCounts)
 		.map(Number)
 		.sort((a, b) => a - b)
-		.map((pax) => `<span class="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-bold text-slate-700">${pax} pax: ${paxCounts[pax]}</span>`)
+		.map((pax) => {
+			const booked = paxBookedCounts[pax] || 0;
+			return `<span class="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-bold text-slate-700" title="${booked} af de ${paxCounts[pax]} borde med ${pax} pax har reservationer i dag">${pax} pax: ${paxCounts[pax]}${booked ? ` <span class="text-rose-700">· ${booked} booket</span>` : ""}</span>`;
+		})
 		.join("");
 
 	tableRoomRows.innerHTML = numbers
