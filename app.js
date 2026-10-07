@@ -794,6 +794,13 @@ function getTablePaxHint(number) {
 	return pax;
 }
 
+function getTableSlotHints(number) {
+	return TIME_SLOTS.map((slot) => {
+		const table = (tables[slotKey(slot)] || {})[number];
+		return table ? { slot, pax: toQuantity(table.guests) } : null;
+	}).filter(Boolean);
+}
+
 function renderTableRoomRows() {
 	const numbers = getAllKnownTableNumbers();
 	if (!numbers.length) {
@@ -816,7 +823,13 @@ function renderTableRoomRows() {
 	tableRoomRows.innerHTML = numbers
 		.map((number) => {
 			const pax = getTablePaxHint(number);
-			return `<div class="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5"><span class="min-w-0 flex-1 truncate text-sm font-bold text-slate-700">Bord ${escapeHtml(number)}${pax ? ` <span class="font-normal text-slate-400">· ${pax}p</span>` : ""}</span><input data-table-number="${escapeHtml(number)}" type="text" inputmode="numeric" value="${escapeHtml(tableDisplayNumbers[number] || "")}" placeholder="${escapeHtml(number)}" title="Bordskilt-nummer for bord ${escapeHtml(number)}" aria-label="Bordskilt-nummer for bord ${escapeHtml(number)}" class="w-12 shrink-0 rounded-lg border border-slate-300 bg-white px-1 py-1 text-center text-xs outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" /><select data-table-room="${escapeHtml(number)}" class="shrink-0 rounded-lg border border-slate-300 bg-white px-1.5 py-1 text-xs outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" aria-label="Lokale for bord ${escapeHtml(number)}"><option value="">Ikke tildelt</option>${settingsRooms.map((room) => `<option value="${room.id}" ${tableRoomAssignments[number] === room.id ? "selected" : ""}>${escapeHtml(room.name)}</option>`).join("")}</select></div>`;
+			const slotBadges = getTableSlotHints(number)
+				.map(
+					({ slot, pax: slotPax }) =>
+						`<span class="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold leading-none text-rose-700">${slot}${slotPax ? ` · ${slotPax}p` : ""}</span>`,
+				)
+				.join("");
+			return `<div class="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5"><div class="min-w-0 flex-1"><span class="block truncate text-sm font-bold text-slate-700">Bord ${escapeHtml(number)}${pax ? ` <span class="font-normal text-slate-400">· ${pax}p</span>` : ""}</span>${slotBadges ? `<div class="flex flex-wrap gap-1 pt-1">${slotBadges}</div>` : ""}</div><input data-table-number="${escapeHtml(number)}" type="text" inputmode="numeric" value="${escapeHtml(tableDisplayNumbers[number] || "")}" placeholder="${escapeHtml(number)}" title="Bordskilt-nummer for bord ${escapeHtml(number)}" aria-label="Bordskilt-nummer for bord ${escapeHtml(number)}" class="w-12 shrink-0 rounded-lg border border-slate-300 bg-white px-1 py-1 text-center text-xs outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" /><select data-table-room="${escapeHtml(number)}" class="shrink-0 rounded-lg border border-slate-300 bg-white px-1.5 py-1 text-xs outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" aria-label="Lokale for bord ${escapeHtml(number)}"><option value="">Ikke tildelt</option>${settingsRooms.map((room) => `<option value="${room.id}" ${tableRoomAssignments[number] === room.id ? "selected" : ""}>${escapeHtml(room.name)}</option>`).join("")}</select></div>`;
 		})
 		.join("");
 }
