@@ -629,7 +629,7 @@ function getNextStatus(currentStatus) {
 }
 
 function getConfirmMessage(status, currentStatus) {
-	if (status === "empty") return "Er du sikker på, at bordet skal gøres ledigt?";
+	if (status === "empty") return "Er du sikker på, at bordet skal afsluttes? (regning skal være betalt)";
 	if (status === currentStatus) {
 		const course = courseByStatus[status]?.course;
 		return course ? `${course} er allerede sendt til køkkenet. Vil du sende den igen?` : "Bordet står allerede i denne status. Vil du fortsætte?";
@@ -1952,7 +1952,8 @@ function groupRunnerOrders() {
 			groupedOrders.set(tableKey, { tableId: order.tableId, room: order.room || "", note: order.note || "", courses: new Map() });
 		}
 		const courses = groupedOrders.get(tableKey).courses;
-		const courseKey = getCourseKey(order.course);
+		const category = getCourseKey(order.course);
+		const courseKey = category; // både mad og drikke grupperes på kategori; drikkevarer samles alle under "drink"
 		if (!courses.has(courseKey)) courses.set(courseKey, []);
 		courses.get(courseKey).push([id, order]);
 	});
@@ -1985,12 +1986,15 @@ function renderRunnerCard(group) {
 
 function renderRunnerCourse(group, courseKey, courseOrders) {
 	const firstOrder = courseOrders[0][1];
+	const category = courseKey; // allerede normaliseret af groupRunnerOrders()
 	const colors = {
 		starter: "border-amber-300 bg-amber-50 text-amber-950",
 		main: "border-sky-300 bg-sky-50 text-sky-950",
 		dessert: "border-emerald-300 bg-emerald-50 text-emerald-950",
 		drink: "border-violet-300 bg-violet-50 text-violet-950",
-	}[courseKey];
+	}[category];
+
+	if (category === "drink") return renderRunnerDrinksBox(group, courseOrders, colors);
 
 	const totalQuantity = courseOrders.reduce((total, [, order]) => total + toQuantity(order.quantity), 0);
 
@@ -2009,7 +2013,7 @@ function renderRunnerCourse(group, courseKey, courseOrders) {
 	const waitColors = waitedMinutes >= 10 ? "bg-rose-500 text-white" : waitedMinutes >= 5 ? "bg-yellow-500 text-white" : "bg-white/80 text-slate-700";
 	const waitBadge = `<span class="rounded-full px-2 py-1 text-xs font-bold ${waitColors}">${formatDurationWithSeconds(waitedSeconds)}</span>`;
 
-	const unit = courseKey === "drink" ? "stk" : "pax";
+	const unit = category === "drink" ? "stk" : "pax";
 
 	return `<div class="rounded-xl border-2 p-5 ${colors}">
 					<div class="flex flex-wrap items-center justify-between gap-4">
@@ -2018,9 +2022,46 @@ function renderRunnerCourse(group, courseKey, courseOrders) {
 							<p class="mt-1 text-4xl font-bold">${totalQuantity}<span class="ml-2 text-base font-normal">${unit}</span></p>
 							${paxLine}
 						</div>
-						<button data-serve-course="${escapeHtml(courseKey)}" data-serve-table="${escapeHtml(group.tableId)}" class="min-h-14 w-full rounded-xl bg-slate-900 px-5 py-4 text-lg font-bold text-white shadow-sm transition hover:bg-slate-700 sm:w-auto sm:min-w-32">Kør</button>
+						<button data-serve-course="${escapeHtml(category)}" data-serve-table="${escapeHtml(group.tableId)}" class="min-h-14 w-full rounded-xl bg-slate-900 px-5 py-4 text-lg font-bold text-white shadow-sm transition hover:bg-slate-700 sm:w-auto sm:min-w-32">Kør</button>
 					</div>
 				</div>`;
+}
+
+function renderRunnerDrinksBox(group, courseOrders, colors) {
+	// Bygger én samlet boks med alle bordets drikkevarer som en kompakt liste.
+	// Hver linje viser "Varenavn · Kategorinavn" til venstre og "×N" til højre.
+	// Boksen har ÉN "Kør"-knap der markerer alle bordets drikkevarer som bragt ud.
+	const totalQuantity = courseOrders.reduce((total, [, order]) => total + toQuantity(order.quantity), 0);
+
+	const waitedSeconds = secondsSince(Math.min(...courseOrders.map(([, order]) => order.createdAt || Date.now())));
+	const waitedMinutes = Math.floor(waitedSeconds / 60);
+	const waitColors = waitedMinutes >= 10 ? "bg-rose-500 text-white" : waitedMinutes >= 5 ? "bg-yellow-500 text-white" : "bg-white/80 text-slate-700";
+	const waitBadge = `<span class="rounded-full px-2 py-1 text-xs font-bold ${waitColors}">${formatDurationWithSeconds(waitedSeconds)}</span>`;
+
+	// Sorter varerne alfabetisk på varenavnet for konsistent rækkefølge.
+	const sortedOrders = [...courseOrders].sort(([, a], [, b]) =>
+		String(a.course)
+			.replace(/^Drikkevare\s*·\s*/i, "")
+			.localeCompare(String(b.course).replace(/^Drikkevare\s*·\s*/i, ""), "da"),
+	);
+
+	const rows = sortedOrders
+		.map(([, order]) => {
+			const itemName = order.course.replace(/^Drikkevare\s*·\s*/i, "");
+			return `<div class="flex items-center justify-between gap-2 text-sm">
+					<span class="min-w-0 truncate font-semibold text-violet-950">${escapeHtml(itemName)}</span>
+					<span class="shrink-0 font-bold text-violet-900">×${toQuantity(order.quantity)}</span>
+				</div>`;
+		})
+		.join("");
+
+	return `<div class="rounded-xl border-2 p-4 ${colors}">
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				<p class="flex items-center gap-2 text-lg font-bold">🍹 Drikkevarer <span class="text-sm font-semibold opacity-70">${totalQuantity} stk</span>${waitBadge}</p>
+			</div>
+			<div class="mt-3 space-y-1">${rows}</div>
+			<button data-serve-course="drink" data-serve-table="${escapeHtml(group.tableId)}" class="mt-4 min-h-12 w-full rounded-xl bg-slate-900 px-5 py-3 text-base font-bold text-white shadow-sm transition hover:bg-slate-700 sm:w-auto sm:min-w-32">Kør</button>
+		</div>`;
 }
 
 async function serveRunnerCourse(tableId, courseKey) {
