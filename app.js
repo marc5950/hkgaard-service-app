@@ -3012,6 +3012,55 @@ async function removeCatalogItem(categoryId, itemId) {
 
 const GUIDE_SECTIONS = [
 	{
+		id: "hjemmeskaerm",
+		label: "📱 Hjemmeskærm",
+		html: `
+            <div class="space-y-4">
+                <h3 class="mb-2 font-display text-xl font-bold text-slate-900">Føj appen til hjemmeskærmen</h3>
+                <p class="text-sm text-slate-600">
+                    Så åbner appen uden browserens adressefelt — som en rigtig app. Genvejen skal laves på
+                    <strong>hver telefon/tablet</strong>, da den ikke følger brugeren.
+                </p>
+
+                <div>
+                    <h3 class="mb-2 text-sm font-bold text-slate-800"> iPhone / iPad — Safari</h3>
+                    <ol class="space-y-1.5 text-sm text-slate-700">
+                        <li><strong>1.</strong> Åbn <strong>Safari</strong> og gå til appens adresse.</li>
+                        <li><strong>2.</strong> Tryk på <strong>Del-ikonet</strong> (firkant med pil op) nederst på skærmen.</li>
+                        <li><strong>3.</strong> Scroll ned og vælg <strong>"Føj til hjemmeskærm"</strong>.</li>
+                        <li><strong>4.</strong> Giv den et navn (fx <em>Hestkøbgaard</em>) og tryk <strong>Tilføj</strong>.</li>
+                    </ol>
+                </div>
+
+                <div>
+                    <h3 class="mb-2 text-sm font-bold text-slate-800">🤖 Android — Chrome</h3>
+                    <ol class="space-y-1.5 text-sm text-slate-700">
+                        <li><strong>1.</strong> Åbn <strong>Chrome</strong> og gå til appens adresse.</li>
+                        <li><strong>2.</strong> Tryk på <strong>de tre prikker</strong> øverst til højre.</li>
+                        <li><strong>3.</strong> Vælg <strong>"Føj til startskærm"</strong> (eller <em>"Installér app"</em>).</li>
+                        <li><strong>4.</strong> Tryk <strong>Tilføj</strong>.</li>
+                    </ol>
+                </div>
+
+                <div>
+                    <h3 class="mb-2 text-sm font-bold text-slate-800">🤖 Android — Samsung Internet</h3>
+                    <ol class="space-y-1.5 text-sm text-slate-700">
+                        <li><strong>1.</strong> Åbn <strong>Samsung Internet</strong> og gå til appens adresse.</li>
+                        <li><strong>2.</strong> Tryk på <strong>menu-ikonet</strong> nederst.</li>
+                        <li><strong>3.</strong> Vælg <strong>"Tilføj side til"</strong> → <strong>"Startskærm"</strong>.</li>
+                    </ol>
+                </div>
+
+                <div class="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
+                    <p class="font-bold">Godt at vide</p>
+                    <ul class="mt-1 space-y-1">
+                        <li>• Appen virker <strong>ikke offline</strong> — den henter data fra Firebase, så der skal være internet.</li>
+                        <li>• Genvejen skal laves på hver enhed — den følger ikke brugeren.</li>
+                    </ul>
+                </div>
+            </div>`,
+	},
+	{
 		id: "overblik",
 		label: "Overblik",
 		html: `
