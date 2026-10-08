@@ -7,7 +7,11 @@
 		<link href="main.css" rel="stylesheet" />
 		<link href="styles.css" rel="stylesheet" />
 		<script>
-			window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+			window.va =
+				window.va ||
+				function () {
+					(window.vaq = window.vaq || []).push(arguments);
+				};
 		</script>
 		<script defer src="/_vercel/insights/script.js"></script>
 	</head>
@@ -112,9 +116,9 @@
 
 			<nav
 				id="roomHotbar"
-				class="fixed inset-x-0 bottom-6 sm:bottom-7 z-40 flex flex-wrap justify-center gap-2 border-t border-slate-200 bg-white/95 px-3 py-3 shadow-[0_-8px_24px_rgba(23,32,42,.12)] backdrop-blur sm:px-6"
+				class="fixed inset-x-0 bottom-6 sm:bottom-7 z-40 flex justify-start overflow-x-auto overflow-y-hidden overscroll-x-contain border-t border-slate-200 bg-white/95 px-3 py-2 sm:justify-center sm:px-6 sm:py-3 shadow-[0_-8px_24px_rgba(23,32,42,.12)] backdrop-blur [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
 				aria-label="Vælg lokale">
-				<div id="roomHotbarButtons" class="flex flex-wrap justify-center gap-2"></div>
+				<div id="roomHotbarButtons" class="flex min-w-max flex-nowrap justify-center gap-2"></div>
 			</nav>
 
 			<!-- ===== Fast dato/klokkeslæt-bar nederst ===== -->
@@ -129,7 +133,7 @@
 			<button
 				id="reservationsToggle"
 				type="button"
-				class="fixed bottom-14 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-2xl text-white shadow-lg transition hover:bg-slate-700 sm:right-6"
+				class="fixed bottom-22 right-2 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-2xl text-white shadow-lg transition hover:bg-slate-700 sm:bottom-19 sm:right-4"
 				aria-label="Find en reservation"
 				title="Find en reservation">
 				📅
