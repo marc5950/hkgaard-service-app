@@ -1191,7 +1191,11 @@ function switchSettingsTab(tabId) {
 }
 
 async function resetAllTables() {
-	if (!confirm("Nulstil status til 'Ikke ankommet' for ALLE borde på ALLE hold? Status, timere, ekstra drikkevarer, noter og alle køer ryddes."))
+	if (
+		!confirm(
+			"Nulstil status til 'Ikke ankommet' for ALLE borde på ALLE hold? Status, timere, ekstra drikkevarer og alle køer ryddes. Noter på borde bevares.",
+		)
+	)
 		return;
 	const nextTables = {};
 	TIME_SLOTS.forEach((slot) => {
@@ -1206,7 +1210,6 @@ async function resetAllTables() {
 					seatedAt: null,
 					readySince: null,
 					completedAt: null,
-					note: "",
 					extras: { ...(table.extras || {}), drinks: {} },
 				},
 			]),
@@ -1223,7 +1226,7 @@ async function resetAllTables() {
 		renderKitchen();
 		renderBar();
 		renderRunner();
-		settingsMessage.textContent = "Status, drikkevarer og noter nulstillet for alle borde";
+		settingsMessage.textContent = "Status, drikkevarer og køer nulstillet for alle borde (noter bevaret)";
 	} catch (error) {
 		console.error(error);
 		settingsMessage.textContent = "Kunne ikke nulstille bordene.";
