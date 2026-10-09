@@ -66,12 +66,6 @@ a {
 		grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
 	}
 }
-@media (min-width: 1280px) {
-	.table-card:hover {
-		transform: translateY(-3px);
-		box-shadow: 0 14px 30px rgba(23, 32, 42, 0.14);
-	}
-}
 .table-card-ready-dot {
 	position: relative;
 	box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.22);
