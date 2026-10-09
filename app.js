@@ -2539,7 +2539,7 @@ function renderDrinksPickerBody(table) {
 															<span class="text-xs text-slate-400">${isExpanded ? "▾" : "▸"}</span>
 														</span>
 													</button>
-													${isExpanded ? `<div class="grid grid-cols-2 gap-1 px-2 pb-2">${rows}</div>` : ""}
+													${isExpanded ? `<div class="grid grid-cols-1 gap-1 sm:grid-cols-2 px-2 pb-2">${rows}</div>` : ""}
 												</div>`;
 				})
 				.join("")}
