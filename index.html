@@ -199,6 +199,13 @@
 					</div>
 					<span id="runnerCount" class="rounded-full bg-sky-100 px-3 py-2 text-sm font-bold text-sky-900">0 borde</span>
 				</div>
+				<div id="runnerFilterBar" class="mb-4 flex flex-wrap gap-2" aria-label="Filtrér runner-ordrer">
+					<button type="button" data-runner-filter="all" class="shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold transition">Alle</button>
+					<button type="button" data-runner-filter="food" class="shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold transition">🍽️ Mad</button>
+					<button type="button" data-runner-filter="drinks" class="shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold transition">
+						🍹 Drikkevarer
+					</button>
+				</div>
 				<div id="runnerOrders" class="grid gap-5 md:grid-cols-2 xl:grid-cols-3"></div>
 				<p id="emptyRunner" class="rounded-2xl border-2 border-dashed border-slate-300 p-10 text-center text-slate-500">
 					Ingen retter klar lige nu. Er du på den rigtige tid?
@@ -218,7 +225,24 @@
 				<div id="modalHeader" class="bg-slate-800 px-4 py-3 text-white sm:px-5">
 					<div class="flex items-start justify-between gap-4">
 						<div>
-							<h2 id="modalTitle" class="font-display mt-1 text-2xl font-bold">Bord</h2>
+							<div class="flex items-center gap-2">
+								<h2 id="modalTitle" class="font-display mt-1 text-2xl font-bold">Bord</h2>
+								<button
+									id="editTableNumber"
+									type="button"
+									class="rounded-full p-1.5 text-base leading-none text-white/60 transition hover:bg-white/10 hover:text-white"
+									aria-label="Rediger bordskilt-nummer"
+									title="Rediger bordskilt-nummer">
+									✏️
+								</button>
+								<input
+									id="tableNumberInput"
+									type="text"
+									inputmode="numeric"
+									maxlength="4"
+									class="hidden mt-1 w-20 rounded-lg border border-white/30 bg-white/10 px-2 py-1 text-2xl font-bold text-white outline-none focus:border-white/60 focus:ring-2 focus:ring-white/30"
+									aria-label="Bordskilt-nummer" />
+							</div>
 							<p id="modalStatus" class="mt-1 text-xs font-bold uppercase tracking-[.18em] text-white/70">Ledigt</p>
 						</div>
 						<button
@@ -563,7 +587,7 @@
 			aria-modal="true"
 			aria-labelledby="drinksPickerTitle">
 			<div
-				class="modal-panel my-auto max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
+				class="modal-panel my-auto max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-2xl sm:max-w-2xl sm:max-h-[calc(100dvh-2rem)] lg:max-w-4xl">
 				<div class="flex items-center justify-between border-b border-slate-200 p-4 sm:p-5">
 					<h2 id="drinksPickerTitle" class="font-display text-xl font-bold text-slate-900">Tilføj drikkevarer</h2>
 					<button

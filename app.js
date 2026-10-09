@@ -210,6 +210,7 @@ let activeTableId = null;
 let activeView = "tables";
 let selectedSlotKey = slotKey(TIME_SLOTS[0]);
 let hasAutoSelectedSlot = false;
+let runnerFilter = "all"; // "all" | "food" | "drinks"
 
 let settingsRooms = [
 	{ id: "cafe", name: "Cafe", accent: "text-rose-700", line: "bg-rose-600", nav: "bg-rose-100 text-rose-800" },
@@ -276,6 +277,8 @@ const emptyRunner = document.querySelector("#emptyRunner");
 
 const modal = document.querySelector("#tableModal");
 const modalTitle = document.querySelector("#modalTitle");
+const editTableNumberBtn = document.querySelector("#editTableNumber");
+const tableNumberInput = document.querySelector("#tableNumberInput");
 const modalStatus = document.querySelector("#modalStatus");
 const statusHint = document.querySelector("#statusHint");
 const bookingInfo = document.querySelector("#bookingInfo");
@@ -1941,9 +1944,16 @@ function renderBarCard(group) {
 /* ---- Runner ---- */
 
 function groupRunnerOrders() {
-	const activeOrders = Object.entries(runnerOrders)
+	const allOrders = Object.entries(runnerOrders)
 		.filter(([, order]) => order.slot === selectedSlotKey)
 		.sort(([, first], [, second]) => (first.createdAt || 0) - (second.createdAt || 0));
+
+	const activeOrders = allOrders.filter(([, order]) => {
+		if (runnerFilter === "all") return true;
+		const category = getCourseKey(order.course);
+		if (runnerFilter === "drinks") return category === "drink";
+		return category !== "drink"; // "food" = alt andet end drink
+	});
 
 	const groupedOrders = new Map();
 	activeOrders.forEach(([id, order]) => {
@@ -1965,12 +1975,33 @@ function renderRunner() {
 	const { activeOrders, groupedOrders } = groupRunnerOrders();
 	runnerCount.textContent = `${groupedOrders.size} ${groupedOrders.size === 1 ? "bord" : "borde"}`;
 	emptyRunner.classList.toggle("hidden", activeOrders.length > 0);
+
+	if (!activeOrders.length) {
+		emptyRunner.textContent =
+			runnerFilter === "drinks"
+				? "Ingen drikkevarer klar til udbæring lige nu."
+				: runnerFilter === "food"
+					? "Ingen mad klar til udbæring lige nu."
+					: "Ingen retter klar lige nu. Er du på den rigtige tid?";
+	}
+
 	runnerOrdersElement.innerHTML = Array.from(groupedOrders.values())
 		.map((group) => renderRunnerCard(group))
 		.join("");
 	runnerOrdersElement
 		.querySelectorAll("[data-serve-course]")
 		.forEach((button) => button.addEventListener("click", () => serveRunnerCourse(button.dataset.serveTable, button.dataset.serveCourse)));
+
+	updateRunnerFilterBar();
+}
+
+function updateRunnerFilterBar() {
+	document.querySelectorAll("[data-runner-filter]").forEach((button) => {
+		const isActive = button.dataset.runnerFilter === runnerFilter;
+		button.className = `shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+			isActive ? "bg-slate-900 text-white" : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+		}`;
+	});
 }
 
 function renderRunnerCard(group) {
@@ -2314,11 +2345,62 @@ async function saveBookingEdit() {
 	}
 }
 
+function startEditingTableNumber() {
+	if (!activeTableId) return;
+	tableNumberInput.value = String(getDisplayNumber(activeTableId));
+	modalTitle.classList.add("hidden");
+	editTableNumberBtn.classList.add("hidden");
+	tableNumberInput.classList.remove("hidden");
+	tableNumberInput.focus();
+	tableNumberInput.select();
+}
+
+function stopEditingTableNumber() {
+	modalTitle.classList.remove("hidden");
+	editTableNumberBtn.classList.remove("hidden");
+	tableNumberInput.classList.add("hidden");
+	tableNumberInput.value = "";
+}
+
+async function saveTableNumber() {
+	if (!activeTableId) return;
+	const tableId = activeTableId;
+	const raw = tableNumberInput.value.trim();
+	const value = raw.replace(/[^0-9]/g, ""); // kun cifre, ellers ignoreres bogstaver
+	const display = value || tableId; // tomt felt = brug booking-nummeret igen
+
+	if (value) tableDisplayNumbers[tableId] = value;
+	else delete tableDisplayNumbers[tableId];
+
+	stopEditingTableNumber();
+	modalTitle.textContent = `Bord ${display}`;
+
+	// Genoptegning overalt, hvor nummeret vises.
+	renderTables();
+	renderKitchen();
+	renderBar();
+	renderRunner();
+	if (!reservationsModal.classList.contains("hidden")) renderReservationsList();
+	if (!settingsModal.classList.contains("hidden")) renderTableRoomRows();
+
+	try {
+		if (window.database) {
+			await update(ref(window.database), {
+				[`settings/tableNumbers/${tableId}`]: value || null,
+			});
+		}
+	} catch (error) {
+		console.error(error);
+		saveMessage.textContent = "Kunne ikke gemme bordskilt-nummer.";
+	}
+}
+
 function openModal(id) {
 	activeTableId = id;
 	const table = getActiveTable();
 
 	modalTitle.textContent = `Bord ${getDisplayNumber(id)}`;
+	stopEditingTableNumber();
 	tableNote.value = table.note || "";
 	stopEditingBooking();
 	renderBookingInfo(table);
@@ -2418,7 +2500,7 @@ async function flushDrinkOrdersToBar() {
 }
 
 function renderStepperRow(label, count, decrementKey, incrementKey) {
-	return /*html*/ `<div class="flex items-center justify-between gap-1.5 rounded-md bg-white px-2 py-1 ring-1 ring-slate-200"><span class="min-w-0 truncate text-xs font-semibold text-slate-700">${escapeHtml(label)}</span><div class="flex shrink-0 items-center gap-1"><button type="button" data-drink-decrement="${decrementKey}" class="flex h-6 w-6 items-center justify-center rounded bg-slate-100 text-xs font-bold text-slate-600 transition hover:bg-slate-200" aria-label="Fjern en ${escapeHtml(label)}">−</button><span class="w-4 text-center text-xs font-bold text-slate-900">${count}</span><button type="button" data-drink-increment="${incrementKey}" class="flex h-6 w-6 items-center justify-center rounded bg-slate-900 text-xs font-bold text-white transition hover:bg-slate-700" aria-label="Tilføj en ${escapeHtml(label)}">+</button></div></div>`;
+	return /*html*/ `<div class="flex items-center justify-between gap-1 rounded-md bg-white px-1.5 py-1.5 ring-1 ring-slate-200"><span class="min-w-0 truncate text-xs font-semibold text-slate-700">${escapeHtml(label)}</span><div class="flex shrink-0 items-center gap-1"><button type="button" data-drink-decrement="${decrementKey}" class="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-700 transition hover:bg-slate-200" aria-label="Fjern en ${escapeHtml(label)}">−</button><span class="w-7 text-center text-base font-bold text-slate-900">${count}</span><button type="button" data-drink-increment="${incrementKey}" class="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-lg font-bold text-white transition hover:bg-slate-700" aria-label="Tilføj en ${escapeHtml(label)}">+</button></div></div>`;
 }
 
 function renderDrinksPickerBody(table) {
@@ -2427,38 +2509,41 @@ function renderDrinksPickerBody(table) {
 		drinksPickerBody.innerHTML = `<p class="text-sm text-slate-400">Ingen kategorier oprettet endnu. Tilføj dem under Opsætning → Drikkekort.</p>`;
 		return;
 	}
-	drinksPickerBody.innerHTML = drinkCategories
-		.map((category) => {
-			const items = drinkCatalog[category.id] || [];
+	drinksPickerBody.innerHTML = `
+		<div class="grid grid-cols-1 gap-3 ">
+			${drinkCategories
+				.map((category) => {
+					const items = drinkCatalog[category.id] || [];
 
-			if (!items.length) {
-				const count = toQuantity((drinks[category.id] || {})[SELF_ITEM_ID]);
-				const key = `${category.id}:${SELF_ITEM_ID}`;
-				return renderStepperRow(category.name, count, key, key);
-			}
+					if (!items.length) {
+						const count = toQuantity((drinks[category.id] || {})[SELF_ITEM_ID]);
+						const key = `${category.id}:${SELF_ITEM_ID}`;
+						return renderStepperRow(category.name, count, key, key);
+					}
 
-			const isExpanded = expandedDrinkCategory === category.id;
-			const categoryTotal = getCategoryTotal(table, category.id);
-			const rows = items
-				.map((item) => {
-					const count = toQuantity((drinks[category.id] || {})[item.id]);
-					const key = `${category.id}:${item.id}`;
-					return renderStepperRow(item.name, count, key, key);
+					const isExpanded = expandedDrinkCategory === category.id;
+					const categoryTotal = getCategoryTotal(table, category.id);
+					const rows = items
+						.map((item) => {
+							const count = toQuantity((drinks[category.id] || {})[item.id]);
+							const key = `${category.id}:${item.id}`;
+							return renderStepperRow(item.name, count, key, key);
+						})
+						.join("");
+
+					return /*html*/ `<div class="rounded-lg ${isExpanded ? "bg-slate-50" : ""}">
+													<button type="button" data-category-toggle="${category.id}" class="flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left rounded-2xl  bg-slate-50">
+														<span class="text-md font-bold text-slate-700">${escapeHtml(category.name)}</span>
+														<span class="flex shrink-0 items-center gap-1.5">
+															${categoryTotal > 0 ? `<span class="rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] font-bold text-white">${categoryTotal}</span>` : ""}
+															<span class="text-xs text-slate-400">${isExpanded ? "▾" : "▸"}</span>
+														</span>
+													</button>
+													${isExpanded ? `<div class="grid grid-cols-2 gap-1 px-2 pb-2">${rows}</div>` : ""}
+												</div>`;
 				})
-				.join("");
-
-			return /*html*/ `<div class="rounded-lg ${isExpanded ? "bg-slate-50" : ""}">
-										<button type="button" data-category-toggle="${category.id}" class="flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left">
-											<span class="text-xs font-bold text-slate-700">${escapeHtml(category.name)}</span>
-											<span class="flex shrink-0 items-center gap-1.5">
-												${categoryTotal > 0 ? `<span class="rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] font-bold text-white">${categoryTotal}</span>` : ""}
-												<span class="text-xs text-slate-400">${isExpanded ? "▾" : "▸"}</span>
-											</span>
-										</button>
-										${isExpanded ? `<div class="grid grid-cols-2 gap-1 px-2 pb-2">${rows}</div>` : ""}
-									</div>`;
-		})
-		.join("");
+				.join("")}
+		</div>`;
 
 	drinksPickerBody.querySelectorAll("[data-category-toggle]").forEach((button) =>
 		button.addEventListener("click", () => {
@@ -3198,6 +3283,7 @@ const GUIDE_SECTIONS = [
                     <ul class="space-y-1.5 text-sm text-slate-700">
                         <li>• Tryk <strong>Afslut bord (regning skal være betalt)</strong> — først når betalingen er gennemført i baren.</li>
                         <li>• Bordet flytter ned i "Afsluttede borde".</li>
+                        <li>• Sidder bordskiltet forkert, kan du rette nummeret direkte i bord-modalen ved at trykke på ✏️ ud for "Bord X".</li>
                     </ul>
                 </div>
 
@@ -3227,6 +3313,7 @@ const GUIDE_SECTIONS = [
                     <h3 class="mb-2 text-sm font-bold text-slate-800">Runner (🏃 fanen)</h3>
                     <ul class="space-y-1.5 text-sm text-slate-700">
                         <li>• Her ser du alt, hvad der står klar til at blive båret ud — både fra køkken og bar.</li>
+                        <li>• Øverst i Runner-visningen kan du filtrere mellem <strong>Alle</strong>, <strong>🍽️ Mad</strong> og <strong>🍹 Drikkevarer</strong> — så du hurtigt kan se, hvad der mangler at blive båret ud af hver slags.</li>
                         <li>• <strong>Fordel arbejdet:</strong> peg på et kort og sig til en runner: <em>"Lokale, bord nr og antal pax"</em>.</li>
                         <li>• Når runneren har bekræftet, at retten er bragt ud, trykker <strong>du</strong> <em>Kør</em> på kortet. Det opdaterer bordets status med det samme.</li>
                     </ul>
@@ -3576,6 +3663,7 @@ function renderGuideBody() {
 }
 
 function closeModal() {
+	stopEditingTableNumber();
 	modal.classList.add("hidden");
 	modal.classList.remove("flex");
 	activeTableId = null;
@@ -3811,6 +3899,21 @@ document.querySelectorAll(".status-button").forEach((button) =>
 document.querySelector("#closeModal").addEventListener("click", closeModal);
 document.querySelector("#closeModalBottom").addEventListener("click", closeModal);
 saveNoteButton.addEventListener("click", saveNote);
+editTableNumberBtn.addEventListener("click", startEditingTableNumber);
+tableNumberInput.addEventListener("keydown", (event) => {
+	if (event.key === "Enter") {
+		event.preventDefault();
+		saveTableNumber();
+	} else if (event.key === "Escape") {
+		event.preventDefault();
+		event.stopPropagation(); // ellers når document-lytteren at lukke hele modalen
+		stopEditingTableNumber();
+	}
+});
+tableNumberInput.addEventListener("blur", () => {
+	// Gem automatisk, når feltet mister fokus — men kun hvis input faktisk er åbent.
+	if (!tableNumberInput.classList.contains("hidden")) saveTableNumber();
+});
 editBookingToggle.addEventListener("click", startEditingBooking);
 document.querySelector("#cancelBookingEdit").addEventListener("click", () => {
 	stopEditingBooking();
@@ -3824,6 +3927,10 @@ modal.addEventListener("click", (event) => {
 });
 document.addEventListener("keydown", (event) => {
 	if (event.key !== "Escape") return;
+	if (!tableNumberInput.classList.contains("hidden")) {
+		stopEditingTableNumber();
+		return;
+	}
 	if (!roomReservationModal.classList.contains("hidden")) closeRoomReservationForm();
 	else if (!walkInModal.classList.contains("hidden")) closeWalkInForm();
 	else if (!reservationsModal.classList.contains("hidden")) closeReservations();
@@ -3942,6 +4049,12 @@ document.querySelector("#tablesToggle").addEventListener("click", () => setView(
 document.querySelector("#kitchenToggle").addEventListener("click", () => setView("kitchen"));
 document.querySelector("#barToggle").addEventListener("click", () => setView("bar"));
 document.querySelector("#runnerToggle").addEventListener("click", () => setView("runner"));
+document.querySelectorAll("[data-runner-filter]").forEach((button) =>
+	button.addEventListener("click", () => {
+		runnerFilter = button.dataset.runnerFilter;
+		if (activeView === "runner") renderRunner();
+	}),
+);
 
 /* ----------------------------------------------------------------------------
 						   OPSTART + FIREBASE-LYTTERE
