@@ -25,6 +25,13 @@ a {
 	user-select: none;
 }
 
+/* Lokale-vælger i bord-modalen: dropdown-listens <option> arver hvid tekst fra select'en,
+   men listen har hvid baggrund — sæt mørk tekst eksplicit. */
+#tableRoomSelect option {
+	color: #17202a;
+	background: #fff;
+}
+
 @layer base {
 	button,
 	select,

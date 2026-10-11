@@ -284,6 +284,7 @@ const modal = document.querySelector("#tableModal");
 const modalTitle = document.querySelector("#modalTitle");
 const editTableNumberBtn = document.querySelector("#editTableNumber");
 const tableNumberInput = document.querySelector("#tableNumberInput");
+const tableRoomSelect = document.querySelector("#tableRoomSelect");
 const modalStatus = document.querySelector("#modalStatus");
 const statusHint = document.querySelector("#statusHint");
 const bookingInfo = document.querySelector("#bookingInfo");
@@ -881,6 +882,18 @@ function getTableSlotHints(number) {
 		const table = (tables[slotKey(slot)] || {})[number];
 		return table ? { slot, pax: toQuantity(table.guests) } : null;
 	}).filter(Boolean);
+}
+
+function renderTableRoomSelect() {
+	if (!activeTableId) return;
+	const currentRoomId = tableRoomAssignments[String(activeTableId)] || "";
+	const options = [{ value: "", label: "Ikke tildelt" }, ...settingsRooms.map((room) => ({ value: room.id, label: room.name }))];
+	tableRoomSelect.innerHTML = options
+		.map(
+			({ value, label }) =>
+				`<option value="${escapeHtml(value)}" ${value === currentRoomId ? "selected" : ""}>${escapeHtml(label)}</option>`,
+		)
+		.join("");
 }
 
 function renderTableRoomRows() {
@@ -2516,6 +2529,7 @@ function openModal(id, slotKey) {
 
 	modalTitle.textContent = `Bord ${getDisplayNumber(id)}`;
 	stopEditingTableNumber();
+	renderTableRoomSelect();
 	tableNote.value = table.note || "";
 	stopEditingBooking();
 	renderBookingInfo(table);
@@ -4026,6 +4040,34 @@ document.querySelector("#closeModal").addEventListener("click", closeModal);
 document.querySelector("#closeModalBottom").addEventListener("click", closeModal);
 saveNoteButton.addEventListener("click", saveNote);
 editTableNumberBtn.addEventListener("click", startEditingTableNumber);
+
+tableRoomSelect.addEventListener("change", async () => {
+	if (!activeTableId) return;
+	const tableId = String(activeTableId);
+	const value = tableRoomSelect.value;
+
+	if (value) tableRoomAssignments[tableId] = value;
+	else delete tableRoomAssignments[tableId];
+
+	// Genoptegning alle steder, hvor lokalet vises.
+	renderTables();
+	if (activeView === "kitchen") renderKitchen();
+	if (activeView === "bar") renderBar();
+	if (activeView === "runner") renderRunner();
+	if (!settingsModal.classList.contains("hidden")) renderTableRoomRows();
+	if (!reservationsModal.classList.contains("hidden")) renderReservationsList();
+
+	try {
+		if (window.database) {
+			await update(ref(window.database), {
+				[`settings/tableRooms/${tableId}`]: value || null,
+			});
+		}
+	} catch (error) {
+		console.error(error);
+		saveMessage.textContent = "Kunne ikke gemme lokalet.";
+	}
+});
 tableNumberInput.addEventListener("keydown", (event) => {
 	if (event.key === "Enter") {
 		event.preventDefault();
