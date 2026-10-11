@@ -25,6 +25,10 @@ function slotKey(label) {
 		.trim();
 }
 
+const MORNING_SLOTS = ["11:45", "12:30", "13:30", "14:15"];
+const MORNING_KEY = "morning";
+const VIEW_KEYS = [MORNING_KEY, slotKey("17:30"), slotKey("19:45")];
+
 const statuses = {
 	empty: { label: "Ikke ankommet", card: "border-slate-300 bg-slate-200", badge: "bg-slate-200 text-slate-700", dot: "bg-slate-400" },
 	arrived: { label: "Ankommet", card: "border-rose-200 bg-rose-50", badge: "bg-rose-100 text-rose-800", dot: "bg-rose-500" },
@@ -207,8 +211,9 @@ let barOrders = {};
 let runnerOrders = {};
 let barPickerSnapshot = null;
 let activeTableId = null;
+let activeTableSlotKey = null;
 let activeView = "tables";
-let selectedSlotKey = slotKey(TIME_SLOTS[0]);
+let selectedSlotKey = MORNING_KEY;
 let hasAutoSelectedSlot = false;
 let runnerFilter = "all"; // "all" | "food" | "drinks"
 
@@ -407,7 +412,8 @@ function generateCatalogItemId() {
 }
 
 function getActiveTable() {
-	return (tables[selectedSlotKey] && tables[selectedSlotKey][activeTableId]) || emptyTable;
+	const slot = activeTableSlotKey || selectedSlotKey;
+	return (tables[slot] && tables[slot][activeTableId]) || emptyTable;
 }
 
 function getRoomName(tableId) {
@@ -425,10 +431,11 @@ function getDisplayNumber(tableId) {
 						---------------------------------------------------------------------------- */
 
 function getAllReservations({ slotFilter = null } = {}) {
+	const allowedSlots = slotFilter ? getSlotsForView(slotFilter) : null;
 	const entries = [];
 	TIME_SLOTS.forEach((slot) => {
 		const key = slotKey(slot);
-		if (slotFilter && key !== slotFilter) return;
+		if (allowedSlots && !allowedSlots.includes(key)) return;
 		Object.entries(tables[key] || {}).forEach(([tableId, table]) => {
 			if (!table || !table.name) return;
 			entries.push({
@@ -463,7 +470,7 @@ function closeReservations() {
 }
 
 function renderReservationsSlotFilter() {
-	const buttons = [{ key: "", label: "Alle hold" }, ...TIME_SLOTS.map((slot) => ({ key: slotKey(slot), label: slot }))];
+	const buttons = [{ key: "", label: "Alle hold" }, ...VIEW_KEYS.map((key) => ({ key, label: getViewLabel(key) }))];
 	reservationsSlotFilterBar.innerHTML = buttons
 		.map(({ key, label }) => {
 			const isActive = (reservationsSlotFilter || "") === key;
@@ -553,7 +560,7 @@ async function reopenReservation(key) {
 	if (!table) return;
 	tables[slot] = { ...tables[slot], [tableId]: { ...table, completedAt: null } };
 	if (window.database) await update(ref(window.database), { [`tables/${slot}/${tableId}/completedAt`]: null });
-	if (slot === selectedSlotKey) renderTables();
+	if (getSlotsForView(selectedSlotKey).includes(slot)) renderTables();
 	renderTimeSlotTabs();
 	renderReservationsList();
 }
@@ -574,12 +581,13 @@ function openReservationTable(key) {
 	const [slot, tableId] = key.split(":");
 	closeReservations();
 	if (activeView !== "tables") setView("tables");
-	if (slot !== selectedSlotKey) {
-		selectedSlotKey = slot;
+	const targetView = MORNING_SLOTS.map(slotKey).includes(slot) ? MORNING_KEY : slot;
+	if (targetView !== selectedSlotKey) {
+		selectedSlotKey = targetView;
 		renderTimeSlotTabs();
 		renderTables();
 	}
-	openModal(tableId);
+	openModal(tableId, slot);
 }
 
 function compareByDisplayNumber(a, b) {
@@ -658,6 +666,27 @@ function getCurrentSlotKey() {
 	return current;
 }
 
+function isMorningView(key) {
+	return key === MORNING_KEY;
+}
+
+// Returnerer de slotKeys, en given visningsnøgle dækker.
+function getSlotsForView(key) {
+	if (isMorningView(key)) return MORNING_SLOTS.map(slotKey);
+	return [key];
+}
+
+// Pænt label til faner og overskrifter.
+function getViewLabel(key) {
+	if (isMorningView(key)) return "Formiddag";
+	return TIME_SLOTS.find((slot) => slotKey(slot) === key) || key;
+}
+
+// Kort label til brug som under-header i en sektion (fx "11:45").
+function getSlotLabel(slotKeyValue) {
+	return TIME_SLOTS.find((slot) => slotKey(slot) === slotKeyValue) || slotKeyValue;
+}
+
 function slotHasPendingOrders(key) {
 	return Object.values(kitchenOrders).some((order) => order.status === "pending" && order.slot === key);
 }
@@ -674,12 +703,15 @@ function slotHasPendingBarOrders(key) {
 
 function renderTimeSlotTabs() {
 	const currentKey = getCurrentSlotKey();
-	timeSlotTabs.innerHTML = TIME_SLOTS.map((slot) => {
-		const key = slotKey(slot);
-		const count = Object.keys(tables[key] || {}).length;
+	const currentIsMorning = MORNING_SLOTS.map(slotKey).includes(currentKey);
+
+	timeSlotTabs.innerHTML = VIEW_KEYS.map((key) => {
+		const slots = getSlotsForView(key);
+		const count = slots.reduce((sum, slotK) => sum + Object.keys(tables[slotK] || {}).length, 0);
 		const isActive = key === selectedSlotKey;
-		const isCurrent = key === currentKey;
-		const needsAttention = !isActive && (slotHasPendingOrders(key) || slotHasPendingRunnerOrders(key) || slotHasPendingBarOrders(key));
+		const isCurrent = isMorningView(key) ? currentIsMorning : key === currentKey;
+		const needsAttention = !isActive && slots.some((s) => slotHasPendingOrders(s) || slotHasPendingRunnerOrders(s) || slotHasPendingBarOrders(s));
+
 		const colorClasses = isActive
 			? "bg-slate-900 text-white hover:bg-slate-700 active:bg-slate-950"
 			: "bg-white text-slate-700 hover:bg-slate-50 active:bg-slate-100";
@@ -692,7 +724,7 @@ function renderTimeSlotTabs() {
 				}">Nu</span>`
 			: "";
 
-		return `<button data-slot="${key}" class="group flex flex-col items-center gap-1 rounded-xl px-3 py-1.5 sm:px-4 sm:py-2 text-sm font-bold transition ${colorClasses} ${ringClasses} ${needsAttention ? "time-slot-tab-alert" : ""}"><span>${slot}${nowBadge}${count ? ` · ${count} borde` : ""}</span></button>`;
+		return `<button data-slot="${key}" class="group flex flex-col items-center gap-1 rounded-xl px-3 py-1.5 sm:px-4 sm:py-2 text-sm font-bold transition ${colorClasses} ${ringClasses} ${needsAttention ? "time-slot-tab-alert" : ""}"><span>${getViewLabel(key)}${nowBadge}${count ? ` · ${count} borde` : ""}</span></button>`;
 	}).join("");
 	timeSlotTabs.querySelectorAll("[data-slot]").forEach((button) =>
 		button.addEventListener("click", () => {
@@ -709,34 +741,36 @@ function renderTimeSlotTabs() {
 }
 
 function selectedSlotLabel() {
+	if (isMorningView(selectedSlotKey)) return MORNING_SLOTS[0]; // peger på første formiddags-hold
 	return TIME_SLOTS.find((slot) => slotKey(slot) === selectedSlotKey) || TIME_SLOTS[0];
 }
 
 function computeRoomGroups() {
-	const slotTables = tables[selectedSlotKey] || {};
-	const tableNumbers = Object.keys(slotTables);
-	const groups = settingsRooms.map((room) => ({ ...room, tableIds: [] }));
+	const slots = getSlotsForView(selectedSlotKey);
+	const entries = []; // { slotKey, tableId }
+	slots.forEach((slotK) => {
+		Object.keys(tables[slotK] || {}).forEach((tableId) => entries.push({ slotKey: slotK, tableId }));
+	});
+
+	const groups = settingsRooms.map((room) => ({ ...room, entries: [] }));
 	const unassigned = {
 		id: "__unassigned",
 		name: "Ikke tildelt",
 		accent: "text-slate-500",
 		line: "bg-slate-400",
 		nav: "bg-slate-200 text-slate-700",
-		tableIds: [],
+		entries: [],
 	};
 
-	tableNumbers.forEach((number) => {
-		const roomId = tableRoomAssignments[number];
+	entries.forEach((entry) => {
+		const roomId = tableRoomAssignments[entry.tableId];
 		const target = groups.find((room) => room.id === roomId);
-		(target || unassigned).tableIds.push(number);
+		(target || unassigned).entries.push(entry);
 	});
 
-	groups.forEach((room) => room.tableIds.sort(compareByDisplayNumber));
-	unassigned.tableIds.sort(compareByDisplayNumber);
-
 	const slotLabel = selectedSlotLabel();
-	const result = groups.filter((room) => room.tableIds.length > 0 || hasReservationForRoomAndSlot(room.id, slotLabel));
-	if (unassigned.tableIds.length) result.unshift(unassigned);
+	const result = groups.filter((room) => room.entries.length > 0 || hasReservationForRoomAndSlot(room.id, slotLabel));
+	if (unassigned.entries.length) result.unshift(unassigned);
 	return result;
 }
 
@@ -1380,9 +1414,11 @@ async function saveImport() {
 
 		tables = nextTables;
 
-		if (!Object.keys(tables[selectedSlotKey] || {}).length) {
+		const currentViewSlots = getSlotsForView(selectedSlotKey);
+		const currentViewHasData = currentViewSlots.some((k) => Object.keys(tables[k] || {}).length > 0);
+		if (!currentViewHasData) {
 			const firstTouched = Array.from(touchedSlots).find((key) => Object.keys(tables[key] || {}).length > 0);
-			if (firstTouched) selectedSlotKey = firstTouched;
+			if (firstTouched) selectedSlotKey = MORNING_SLOTS.map(slotKey).includes(firstTouched) ? MORNING_KEY : firstTouched;
 		}
 
 		if (window.database) {
@@ -1440,24 +1476,28 @@ async function clearAllReservations() {
 						---------------------------------------------------------------------------- */
 
 function renderTables() {
-	const slotTables = tables[selectedSlotKey] || {};
-	const totalPax = Object.values(slotTables).reduce((sum, table) => sum + toQuantity(table.guests), 0);
-	tableCount.textContent = `${totalPax} pax denne tid`;
-	welcomeDrinkTotal.textContent = Object.values(slotTables)
-		.filter((table) => !table.completedAt)
-		.reduce((sum, table) => sum + toQuantity(table.extras?.welcomeDrinkQuantity), 0);
+	const viewSlots = getSlotsForView(selectedSlotKey);
+	const allTables = viewSlots.flatMap((slotK) => Object.entries(tables[slotK] || {}).map(([tableId, table]) => ({ slotKey: slotK, tableId, table })));
+
+	const totalPax = allTables.reduce((sum, e) => sum + toQuantity(e.table.guests), 0);
+	tableCount.textContent = `${totalPax} pax i alt`;
+	welcomeDrinkTotal.textContent = allTables
+		.filter((e) => !e.table.completedAt)
+		.reduce((sum, e) => sum + toQuantity(e.table.extras?.welcomeDrinkQuantity), 0);
 	currentRoomGroups = computeRoomGroups();
 	renderRoomHotbar();
 	renderStatusLegend();
 	renderTodayReservationsBadge();
-	tablesGrid.innerHTML = currentRoomGroups.map((room) => renderRoomSection(room, slotTables)).join("") + renderFinishedList(slotTables);
+	tablesGrid.innerHTML = currentRoomGroups.map((room) => renderRoomSection(room)).join("") + renderFinishedListAcrossSlots(viewSlots);
 
-	tablesGrid.querySelectorAll("[data-table-id]").forEach((card) => card.addEventListener("click", () => openModal(card.dataset.tableId)));
+	tablesGrid.querySelectorAll("[data-table-id]").forEach((card) =>
+		card.addEventListener("click", () => openModal(card.dataset.tableId, card.dataset.tableSlot)),
+	);
 
 	tablesGrid.querySelectorAll("[data-quick-serve]").forEach((dot) => {
 		const trigger = (event) => {
 			event.stopPropagation();
-			markCourseServed(dot.dataset.quickServe);
+			markCourseServed(dot.dataset.quickServeTable, dot.dataset.quickServeSlot);
 		};
 		dot.addEventListener("click", trigger);
 		dot.addEventListener("keydown", (event) => {
@@ -1478,15 +1518,29 @@ function renderTables() {
 	tablesGrid.querySelectorAll("[data-reopen-table]").forEach((button) =>
 		button.addEventListener("click", (event) => {
 			event.stopPropagation();
-			reopenTable(button.dataset.reopenTable);
+			reopenTable(button.dataset.reopenTable, button.dataset.reopenSlot);
 		}),
 	);
 }
 
 function renderStatusLegend() {
-	const slotTables = Object.values(tables[selectedSlotKey] || {});
-	const activeTables = slotTables.filter((table) => !table.completedAt);
-	const finishedTables = slotTables.filter((table) => table.completedAt);
+	const slotMap = {
+		morning: MORNING_SLOTS.map(slotKey),
+		"1730": [slotKey("17:30")],
+		"1945": [slotKey("19:45")],
+	};
+	const paxFor = (slots) =>
+		slots.reduce((sum, slotK) => sum + Object.values(tables[slotK] || {}).reduce((s, t) => s + toQuantity(t.guests), 0), 0);
+
+	document.querySelector("#legendMorning").textContent = `${paxFor(slotMap.morning)} pax`;
+	document.querySelector("#legendAfternoon").textContent = `${paxFor(slotMap["1730"])} pax`;
+	document.querySelector("#legendEvening").textContent = `${paxFor(slotMap["1945"])} pax`;
+
+	// Behold statusfordelingen (Ledigt/Venter/Forret/Hovedret/Dessert) for det aktuelt valgte view.
+	const viewSlots = getSlotsForView(selectedSlotKey);
+	const viewTables = viewSlots.flatMap((slotK) => Object.values(tables[slotK] || {}));
+	const activeTables = viewTables.filter((t) => !t.completedAt);
+	const finishedTables = viewTables.filter((t) => t.completedAt);
 	const groups = {
 		empty: ["empty"],
 		arrived: ["arrived", "drinks_served"],
@@ -1494,8 +1548,8 @@ function renderStatusLegend() {
 		main: ["main_ordered", "main_ready", "main_served"],
 		dessert: ["dessert_ordered", "dessert_ready", "dessert_served"],
 	};
-	const count = (statusList) => activeTables.filter((table) => statusList.includes(table.status || "empty")).length;
-	document.querySelector("#legendTotal").textContent = slotTables.length;
+	const count = (statusList) => activeTables.filter((t) => statusList.includes(t.status || "empty")).length;
+	document.querySelector("#legendTotal").textContent = viewTables.length;
 	document.querySelector("#legendFinished").textContent = finishedTables.length;
 	document.querySelector("#legendEmpty").textContent = count(groups.empty);
 	document.querySelector("#legendArrived").textContent = count(groups.arrived);
@@ -1504,21 +1558,49 @@ function renderStatusLegend() {
 	document.querySelector("#legendDessert").textContent = count(groups.dessert);
 }
 
-function renderRoomSection(room, slotTables) {
+function renderRoomSection(room) {
 	const isCollapsed = collapsedRooms.has(room.id);
 	const reservation = getReservationForRoomAndSlot(room.id, selectedSlotLabel());
 	const upcomingReservation = reservation ? null : getUpcomingReservationForRoom(room.id, selectedSlotLabel());
 	const shownReservation = reservation || upcomingReservation;
 
-	const activeIds = room.tableIds.filter((id) => slotTables[id] && !slotTables[id].completedAt);
-	if (!activeIds.length && !shownReservation) return "";
-	const cards = activeIds.map((id) => renderTableCard(id, slotTables[id])).join("");
+	const entries = room.entries || [];
+	const activeEntries = entries.filter(({ slotKey: sK, tableId }) => {
+		const t = tables[sK]?.[tableId];
+		return t && !t.completedAt;
+	});
 
-	let countLabel = `<span class="ml-3 text-sm font-bold text-slate-400">${activeIds.length} borde</span>`;
+	if (!activeEntries.length && !shownReservation) return "";
+
+	// Gruppér pr. slot, i den rækkefølge slots optræder i viewet.
+	const viewSlots = getSlotsForView(selectedSlotKey);
+	const bySlot = new Map();
+	viewSlots.forEach((slotK) => bySlot.set(slotK, []));
+	activeEntries.forEach((e) => {
+		if (!bySlot.has(e.slotKey)) bySlot.set(e.slotKey, []);
+		bySlot.get(e.slotKey).push(e);
+	});
+
+	const showSlotHeaders = viewSlots.length > 1;
+	const slotBlocks = Array.from(bySlot.entries())
+		.filter(([, list]) => list.length > 0)
+		.map(([slotK, list]) => {
+			const cards = list
+				.sort((a, b) => compareByDisplayNumber(a.tableId, b.tableId))
+				.map(({ slotKey: sK, tableId }) => renderTableCard(tableId, tables[sK][tableId], sK))
+				.join("");
+			const header = showSlotHeaders
+				? `<h3 class="mb-2 mt-4 font-display text-xl font-bold text-slate-500 first:mt-0">${escapeHtml(getSlotLabel(slotK))}</h3>`
+				: "";
+			return `${header}<div class="room-table-grid grid gap-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">${cards}</div>`;
+		})
+		.join("");
+
+	let countLabel = `<span class="ml-3 text-sm font-bold text-slate-400">${activeEntries.length} borde</span>`;
 	if (reservation)
-		countLabel = `<span class="ml-3 text-sm font-bold text-violet-500">Reserveret til selskab</span>${activeIds.length ? `<span class="ml-2 text-xs font-bold text-rose-600">⚠ ${activeIds.length} borde</span>` : ""}`;
+		countLabel = `<span class="ml-3 text-sm font-bold text-violet-500">Reserveret til selskab</span>${activeEntries.length ? `<span class="ml-2 text-xs font-bold text-rose-600">⚠ ${activeEntries.length} borde</span>` : ""}`;
 	else if (upcomingReservation)
-		countLabel = `<span class="ml-3 text-sm font-bold text-slate-400">${activeIds.length} borde</span><span class="ml-2 text-xs font-bold text-slate-500">🎉 Kommende selskab</span>`;
+		countLabel = `<span class="ml-3 text-sm font-bold text-slate-400">${activeEntries.length} borde</span><span class="ml-2 text-xs font-bold text-slate-500">🎉 Kommende selskab</span>`;
 
 	const reservationBlock = shownReservation
 		? reservation
@@ -1537,14 +1619,14 @@ function renderRoomSection(room, slotTables) {
 		: "";
 
 	return `<section id="room-${room.id}" class="room-section" aria-labelledby="room-heading-${room.id}">
-								<button data-room-toggle="${room.id}" aria-expanded="${!isCollapsed}" class="mb-4 flex w-full items-center gap-3 text-left">
+								<button data-room-toggle="${room.id}" aria-expanded="${!isCollapsed}" class="mb-2 flex w-full items-center gap-3 text-left">
 									<span class="h-8 w-1.5 rounded-full ${room.line}"></span><span class="flex-1"><span id="room-heading-${room.id}" class="font-display text-3xl font-bold ${room.accent}">${escapeHtml(room.name)}</span>${countLabel}</span><span class="text-xl text-slate-400">${isCollapsed ? "▸" : "▾"}</span>
 								</button>
-								<div class="${isCollapsed ? "hidden" : ""}">${reservationBlock}${cards ? `<div class="room-table-grid grid gap-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">${cards}</div>` : ""}</div>
+								<div class="${isCollapsed ? "hidden" : ""}">${reservationBlock}${slotBlocks}</div>
 							</section>`;
 }
 
-function renderTableCard(id, table) {
+function renderTableCard(id, table, slotKey) {
 	const status = statuses[table.status] || statuses.empty;
 	const extras = table.extras || {};
 	const pescetarianQuantity = toQuantity(extras.pescetarianQuantity);
@@ -1591,34 +1673,37 @@ function renderTableCard(id, table) {
 	const details = `<div class="mt-1 flex items-start justify-between gap-2"><div class="min-w-0 flex-1">${table.name ? `<p class="truncate text-[11px] font-bold text-slate-700 sm:text-xs">${escapeHtml(table.name)}</p>` : ""}${pescetarianQuantity ? `<p class="text-[11px] font-bold text-amber-800 sm:text-xs">${pescetarianQuantity} pescetar</p>` : ""}${drinksTotalForCard ? `<p class="text-[11px] font-bold text-violet-700 sm:text-xs" title="Ekstra drikkevarer, der mangler at blive slået ind i kassen">🧾 ${drinksTotalForCard} drikkevarer</p>` : ""}${table.note ? `<p class="mt-1 max-w-full truncate text-[11px] font-semibold text-slate-600 sm:text-xs" title="${escapeHtml(table.note)}">${escapeHtml(table.note)}</p>` : ""}</div><div class="flex shrink-0 items-center gap-1.5">${readyBadge}<span class="shrink-0 rounded-full px-2 py-1 text-[10px] font-bold leading-tight ${status.badge} sm:text-xs">${status.label}</span></div></div>`;
 
 	const dot = readyDotClass
-		? `<span class="-m-1.5 cursor-pointer rounded-full p-1.5 hover:bg-black/5" data-quick-serve="${id}" role="button" tabindex="0" aria-label="Marker ${status.label.toLowerCase()} som serveret"><span class="block h-2.5 w-2.5 rounded-full ${status.dot} ${readyDotClass}"></span></span>`
+		? `<span class="-m-1.5 cursor-pointer rounded-full p-1.5 hover:bg-black/5" data-quick-serve-table="${id}" data-quick-serve-slot="${slotKey}" data-quick-serve="${id}" role="button" tabindex="0" aria-label="Marker ${status.label.toLowerCase()} som serveret"><span class="block h-2.5 w-2.5 rounded-full ${status.dot} ${readyDotClass}"></span></span>`
 		: `<span class="h-2.5 w-2.5 shrink-0 rounded-full ${status.dot}" title="${status.label}"></span>`;
 
-	return `<button class="table-card rounded-xl border-2 px-3 py-2 text-left shadow-sm ${status.card}" data-table-id="${id}">
+	return `<button class="table-card rounded-xl border-2 px-3 py-2 text-left shadow-sm ${status.card}" data-table-id="${id}" data-table-slot="${slotKey}">
 								<div class="flex items-center justify-between"><span class="font-display flex flex-wrap items-center gap-1.5 text-base font-bold text-slate-900 sm:text-lg">Bord ${escapeHtml(getDisplayNumber(id))} <span class="font-sans text-xs font-bold text-slate-500 sm:text-sm">· ${toQuantity(table.guests)} pax</span>${table.isWalkIn ? `<span class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-800 ring-1 ring-amber-300 sm:text-[10px]">Walk-in</span>` : ""}</span><div class="flex items-center gap-2"><span class="flex items-center gap-1 text-xs" aria-hidden="true">${extraIcons.join("")}</span>${dot}</div></div>
 								${seatedBadge ? `<div>${seatedBadge}</div>` : ""}
 								${details}
 							</button>`;
 }
 
-function renderFinishedList(slotTables) {
-	const finished = Object.entries(slotTables)
-		.filter(([, table]) => table.completedAt)
-		.sort(([, a], [, b]) => b.completedAt - a.completedAt);
+function renderFinishedListAcrossSlots(slotKeys) {
+	const finished = slotKeys
+		.flatMap((slotK) => Object.entries(tables[slotK] || {}).map(([tableId, table]) => ({ slotKey: slotK, tableId, table })))
+		.filter(({ table }) => table.completedAt)
+		.sort((a, b) => b.table.completedAt - a.table.completedAt);
 	if (!finished.length) return "";
-
-	const cards = finished.map(([id, table]) => renderFinishedCard(id, table)).join("");
+	const showSlotHeaders = slotKeys.length > 1;
+	const cards = finished
+		.map(({ slotKey: sK, tableId, table }) => renderFinishedCard(tableId, table, sK, showSlotHeaders ? getSlotLabel(sK) : ""))
+		.join("");
 	return `<section class="mt-10 border-t border-slate-200 pt-6">
 								<h2 class="mb-3 font-display text-2xl font-bold text-slate-400">Afsluttede borde (${finished.length})</h2>
 								<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">${cards}</div>
 							</section>`;
 }
 
-function renderFinishedCard(id, table) {
+function renderFinishedCard(id, table, slotK = "", slotLabel = "") {
 	const time = new Date(table.completedAt).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" });
 	return `<div class="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-								<div class="min-w-0"><p class="truncate text-sm font-bold text-slate-600">Bord ${escapeHtml(getDisplayNumber(id))}${table.name ? ` · ${escapeHtml(table.name)}` : ""}</p><p class="text-xs text-slate-400">${toQuantity(table.guests)} pax · afsluttet ${time}</p></div>
-								<button data-reopen-table="${id}" class="shrink-0 rounded-lg border border-slate-300 px-2 py-1 text-xs font-bold text-slate-600 hover:bg-slate-50">Genåbn</button>
+								<div class="min-w-0"><p class="truncate text-sm font-bold text-slate-600">Bord ${escapeHtml(getDisplayNumber(id))}${slotLabel ? ` <span class="font-normal text-slate-400">· ${escapeHtml(slotLabel)}</span>` : ""}${table.name ? ` · ${escapeHtml(table.name)}` : ""}</p><p class="text-xs text-slate-400">${toQuantity(table.guests)} pax · afsluttet ${time}</p></div>
+								<button data-reopen-table="${id}" data-reopen-slot="${slotK}" class="shrink-0 rounded-lg border border-slate-300 px-2 py-1 text-xs font-bold text-slate-600 hover:bg-slate-50">Genåbn</button>
 							</div>`;
 }
 
@@ -1660,8 +1745,9 @@ function setView(view) {
 /* ---- Køkken ---- */
 
 function groupPendingOrders() {
+	const viewSlots = getSlotsForView(selectedSlotKey);
 	const activeOrders = Object.entries(kitchenOrders)
-		.filter(([, order]) => order.status === "pending" && order.slot === selectedSlotKey)
+		.filter(([, order]) => order.status === "pending" && viewSlots.includes(order.slot))
 		.sort(([, first], [, second]) => (first.createdAt || 0) - (second.createdAt || 0));
 
 	const groupedOrders = new Map();
@@ -1705,7 +1791,8 @@ function sumTablePax(tableList, predicate) {
 }
 
 function renderKitchenSummary() {
-	const slotTables = Object.values(tables[selectedSlotKey] || {}).filter((table) => !table.completedAt);
+	const viewSlots = getSlotsForView(selectedSlotKey);
+	const slotTables = viewSlots.flatMap((slotK) => Object.values(tables[slotK] || {})).filter((table) => !table.completedAt);
 
 	const starterTotals = sumTablePax(slotTables, (table) => COURSE_PROGRESS[table.status] < COURSE_PROGRESS.starter_served);
 	const mainTotals = sumTablePax(slotTables, (table) => COURSE_PROGRESS[table.status] < COURSE_PROGRESS.main_ready);
@@ -1784,11 +1871,12 @@ function renderKitchenCourse(group, courseKey, courseOrders) {
 }
 
 async function completeCourse(tableId, courseKey) {
+	const viewSlots = getSlotsForView(selectedSlotKey);
 	const orderIds = Object.entries(kitchenOrders)
 		.filter(
 			([, order]) =>
 				order.status === "pending" &&
-				order.slot === selectedSlotKey &&
+				viewSlots.includes(order.slot) &&
 				String(order.tableId) === String(tableId) &&
 				getCourseKey(order.course) === courseKey,
 		)
@@ -1809,7 +1897,7 @@ async function completeOrder(orderId) {
 		const currentTable = (tables[slot] && tables[slot][order.tableId]) || emptyTable;
 		const readySince = currentTable.status === order.readyStatus ? currentTable.readySince : Date.now();
 		tables[slot][order.tableId] = { ...currentTable, status: order.readyStatus, readySince };
-		if (slot === selectedSlotKey) renderTables();
+		if (getSlotsForView(selectedSlotKey).includes(slot)) renderTables();
 	}
 
 	if (window.database) {
@@ -1829,8 +1917,9 @@ async function completeOrder(orderId) {
 /* ---- Bar ---- */
 
 function groupBarOrders() {
+	const viewSlots = getSlotsForView(selectedSlotKey);
 	const activeOrders = Object.entries(barOrders)
-		.filter(([, order]) => order.slot === selectedSlotKey)
+		.filter(([, order]) => viewSlots.includes(order.slot))
 		.sort(([, first], [, second]) => (first.createdAt || 0) - (second.createdAt || 0));
 
 	const groupedOrders = new Map();
@@ -1846,7 +1935,8 @@ function groupBarOrders() {
 }
 
 function renderBarSummary() {
-	const activeOrders = Object.values(barOrders).filter((order) => order.slot === selectedSlotKey);
+	const viewSlots = getSlotsForView(selectedSlotKey);
+	const activeOrders = Object.values(barOrders).filter((order) => viewSlots.includes(order.slot));
 	const byCategory = {};
 	activeOrders.forEach((order) => {
 		const key = order.categoryId || "ukendt";
@@ -1866,7 +1956,8 @@ function renderBarSummary() {
 }
 
 function renderBarInfo() {
-	const slotTables = Object.values(tables[selectedSlotKey] || {}).filter((table) => !table.completedAt);
+	const viewSlots = getSlotsForView(selectedSlotKey);
+	const slotTables = viewSlots.flatMap((slotK) => Object.values(tables[slotK] || {})).filter((table) => !table.completedAt);
 	const welcomeTotal = slotTables.reduce((sum, t) => sum + toQuantity(t.extras?.welcomeDrinkQuantity), 0);
 	const wineTotal = slotTables.reduce((sum, t) => sum + toQuantity(t.extras?.wineQuantity), 0);
 	const pescWineTotal = slotTables.reduce((sum, t) => sum + toQuantity(t.extras?.pescetarianWineQuantity), 0);
@@ -1900,7 +1991,8 @@ function renderBar() {
 }
 
 function renderBarCard(group) {
-	const table = (tables[selectedSlotKey] && tables[selectedSlotKey][group.tableId]) || emptyTable;
+	const orderSlot = group.items[0]?.[1]?.slot;
+	const table = (orderSlot && tables[orderSlot] && tables[orderSlot][group.tableId]) || emptyTable;
 	const extras = table.extras || {};
 	const infoChips = [];
 	if (toQuantity(extras.welcomeDrinkQuantity) > 0)
@@ -1944,8 +2036,9 @@ function renderBarCard(group) {
 /* ---- Runner ---- */
 
 function groupRunnerOrders() {
+	const viewSlots = getSlotsForView(selectedSlotKey);
 	const allOrders = Object.entries(runnerOrders)
-		.filter(([, order]) => order.slot === selectedSlotKey)
+		.filter(([, order]) => viewSlots.includes(order.slot))
 		.sort(([, first], [, second]) => (first.createdAt || 0) - (second.createdAt || 0));
 
 	const activeOrders = allOrders.filter(([, order]) => {
@@ -2096,8 +2189,9 @@ function renderRunnerDrinksBox(group, courseOrders, colors) {
 }
 
 async function serveRunnerCourse(tableId, courseKey) {
+	const viewSlots = getSlotsForView(selectedSlotKey);
 	const orderIds = Object.entries(runnerOrders)
-		.filter(([, order]) => order.slot === selectedSlotKey && String(order.tableId) === String(tableId) && getCourseKey(order.course) === courseKey)
+		.filter(([, order]) => viewSlots.includes(order.slot) && String(order.tableId) === String(tableId) && getCourseKey(order.course) === courseKey)
 		.map(([id]) => id);
 	if (!orderIds.length) return;
 
@@ -2117,13 +2211,13 @@ async function serveRunnerCourse(tableId, courseKey) {
 						   ORDRER
 						---------------------------------------------------------------------------- */
 
-async function createKitchenOrder(tableId, quantity, note, course, readyStatus = "") {
+async function createKitchenOrder(tableId, quantity, note, course, readyStatus = "", slotOverride = null) {
 	if (!(Number(quantity) > 0)) return;
 
 	const timestamp = Date.now();
 	const order = {
 		tableId: Number(tableId),
-		slot: selectedSlotKey,
+		slot: slotOverride || selectedSlotKey,
 		room: getRoomName(tableId),
 		course,
 		quantity,
@@ -2143,10 +2237,10 @@ async function createKitchenOrder(tableId, quantity, note, course, readyStatus =
 	}
 }
 
-async function createCourseOrders({ tableId, course, readyStatus, note, guests, pescetarianQuantity }) {
+async function createCourseOrders({ tableId, course, readyStatus, note, guests, pescetarianQuantity, slot = null }) {
 	const regularQuantity = Math.max(0, guests - pescetarianQuantity);
-	await createKitchenOrder(tableId, regularQuantity, note, course, readyStatus);
-	await createKitchenOrder(tableId, pescetarianQuantity, note, `${course} · pescetarisk`, readyStatus);
+	await createKitchenOrder(tableId, regularQuantity, note, course, readyStatus, slot);
+	await createKitchenOrder(tableId, pescetarianQuantity, note, `${course} · pescetarisk`, readyStatus, slot);
 }
 
 async function createBarOrder(tableId, itemId, itemName, categoryId, categoryName, quantity, note, slotOverride = null) {
@@ -2303,7 +2397,7 @@ function stopEditingBooking() {
 
 async function saveBookingEdit() {
 	if (!activeTableId) return;
-	const slot = selectedSlotKey;
+	const slot = activeTableSlotKey || selectedSlotKey;
 	const id = activeTableId;
 	const field = (name) => bookingEditForm.querySelector(`[data-booking-field="${name}"]`)?.value ?? "";
 
@@ -2395,8 +2489,9 @@ async function saveTableNumber() {
 	}
 }
 
-function openModal(id) {
+function openModal(id, slotKey) {
 	activeTableId = id;
+	activeTableSlotKey = slotKey || (isMorningView(selectedSlotKey) ? MORNING_SLOTS.map(slotKey).find((s) => tables[slotKey(s)]?.[id]) : selectedSlotKey);
 	const table = getActiveTable();
 
 	modalTitle.textContent = `Bord ${getDisplayNumber(id)}`;
@@ -2487,7 +2582,7 @@ async function flushDrinkOrdersToBar() {
 		});
 	});
 
-	const slot = selectedSlotKey;
+	const slot = activeTableSlotKey || selectedSlotKey;
 	const tableId = activeTableId;
 	barPickerSnapshot = null;
 
@@ -2568,7 +2663,7 @@ async function adjustDrinkItem(categoryKey, itemId, delta) {
 
 async function setDrinkItemCount(categoryKey, itemId, nextCount) {
 	if (!activeTableId) return;
-	const slot = selectedSlotKey;
+	const slot = activeTableSlotKey || selectedSlotKey;
 	const id = activeTableId;
 	const table = getActiveTable();
 	const drinks = { ...getDrinks(table) };
@@ -2724,7 +2819,7 @@ function onWalkInTableChange() {
 
 function openWalkInForm() {
 	walkInSlot.innerHTML = TIME_SLOTS.map(
-		(slot) => `<option value="${slotKey(slot)}" ${slotKey(slot) === selectedSlotKey ? "selected" : ""}>${slot}</option>`,
+		(slot) => `<option value="${slotKey(slot)}" ${slotKey(slot) === (isMorningView(selectedSlotKey) ? slotKey(MORNING_SLOTS[0]) : selectedSlotKey) ? "selected" : ""}>${slot}</option>`,
 	).join("");
 
 	populateWalkInTableOptions();
@@ -2827,8 +2922,9 @@ async function saveWalkInForm() {
 		}
 
 		if (activeView !== "tables") setView("tables");
-		if (slot !== selectedSlotKey) {
-			selectedSlotKey = slot;
+		const targetView = MORNING_SLOTS.map(slotKey).includes(slot) ? MORNING_KEY : slot;
+		if (targetView !== selectedSlotKey) {
+			selectedSlotKey = targetView;
 			renderTimeSlotTabs();
 		}
 		renderTables();
@@ -2847,7 +2943,7 @@ async function deleteWalkInTable() {
 
 	if (!window.confirm(`Fjern walk-in bord ${getDisplayNumber(activeTableId)}? Data kan ikke gendannes.`)) return;
 
-	const slot = selectedSlotKey;
+	const slot = activeTableSlotKey || selectedSlotKey;
 	const tableId = activeTableId;
 	const changes = {
 		[`tables/${slot}/${tableId}`]: null,
@@ -3186,6 +3282,9 @@ const GUIDE_SECTIONS = [
                         <li><strong>7.</strong> Samme mønster for dessert → bordet bliver <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800">GRØNT</span></li>
                         <li><strong>8.</strong> Tjener trykker <em>Afslut bord</em>, når betalingen er gennemført</li>
                     </ol>
+                    <ul class="mt-2 space-y-1.5 text-sm text-slate-700">
+                        <li><strong>Formiddag:</strong> De fire formiddags-hold (11:45, 12:30, 13:30, 14:15) vises samlet under fanen <em>Formiddag</em>. Bordene grupperes pr. lokale og pr. hold med en lille overskrift over hver gruppe. Man behøver ikke skifte fane undervejs.</li>
+                    </ul>
                 </div>
 
                 <div class="rounded-xl bg-slate-100 p-3 text-sm text-slate-700">
@@ -3667,6 +3766,7 @@ function closeModal() {
 	modal.classList.add("hidden");
 	modal.classList.remove("flex");
 	activeTableId = null;
+	activeTableSlotKey = null;
 }
 
 function updateGuestGuard() {
@@ -3703,7 +3803,7 @@ function blockWithoutGuests() {
 async function saveNote() {
 	if (!activeTableId) return;
 	const tableId = activeTableId;
-	const slot = selectedSlotKey;
+	const slot = activeTableSlotKey || selectedSlotKey;
 	const note = tableNote.value.trim();
 	const currentTable = getActiveTable();
 
@@ -3744,8 +3844,8 @@ async function saveNote() {
 	}
 }
 
-async function clearTable(tableId) {
-	const slot = selectedSlotKey;
+async function clearTable(tableId, slotOverride) {
+	const slot = slotOverride || activeTableSlotKey || selectedSlotKey;
 	const completedAt = Date.now();
 	const changes = {
 		[`tables/${slot}/${tableId}/status`]: "empty",
@@ -3783,9 +3883,9 @@ async function clearTable(tableId) {
 	renderRunner();
 }
 
-async function reopenTable(tableId) {
-	const slot = selectedSlotKey;
-	const current = tables[slot][tableId];
+async function reopenTable(tableId, slotOverride) {
+	const slot = slotOverride || selectedSlotKey;
+	const current = tables[slot] && tables[slot][tableId];
 	if (!current) return;
 	tables[slot][tableId] = { ...current, completedAt: null };
 	renderTables();
@@ -3811,7 +3911,7 @@ async function applyTableStatus(tableId, status, { guests, note, extras }, slotO
 	renderTables();
 
 	if (status === "empty") {
-		await clearTable(tableId);
+		await clearTable(tableId, slot);
 		return values;
 	}
 
@@ -3827,6 +3927,7 @@ async function applyTableStatus(tableId, status, { guests, note, extras }, slotO
 			note: values.note,
 			guests: values.guests,
 			pescetarianQuantity,
+			slot,
 		});
 	}
 
@@ -3853,7 +3954,7 @@ async function saveTable(status) {
 
 	saveMessage.textContent = "Gemmer...";
 	try {
-		await applyTableStatus(tableId, status, { guests: currentTable.guests, note: tableNote.value.trim(), extras: currentTable.extras });
+		await applyTableStatus(tableId, status, { guests: currentTable.guests, note: tableNote.value.trim(), extras: currentTable.extras }, activeTableSlotKey || selectedSlotKey);
 		saveMessage.textContent = "Gemt";
 		setTimeout(closeModal, 350);
 	} catch (error) {
@@ -3862,13 +3963,13 @@ async function saveTable(status) {
 	}
 }
 
-async function markCourseServed(tableId) {
-	const slot = selectedSlotKey;
+async function markCourseServed(tableId, slotKey) {
+	const slot = slotKey || selectedSlotKey;
 	const table = tables[slot] && tables[slot][tableId];
 	const nextStatus = table && nextStatusByStatus[table.status];
 	if (!table || !nextStatus) return;
 	try {
-		await applyTableStatus(tableId, nextStatus, { guests: table.guests, note: table.note, extras: table.extras });
+		await applyTableStatus(tableId, nextStatus, { guests: table.guests, note: table.note, extras: table.extras }, slot);
 	} catch (error) {
 		console.error(error);
 		renderTables();
@@ -4106,8 +4207,12 @@ if (hasFirebaseConfig) {
 			tables = Object.fromEntries(TIME_SLOTS.map((slot) => [slotKey(slot), value[slotKey(slot)] || {}]));
 			if (!hasAutoSelectedSlot) {
 				hasAutoSelectedSlot = true;
-				const firstWithData = TIME_SLOTS.map(slotKey).find((key) => Object.keys(tables[key]).length > 0);
-				if (firstWithData) selectedSlotKey = firstWithData;
+				const hasMorning = MORNING_SLOTS.some((s) => Object.keys(tables[slotKey(s)]).length > 0);
+				if (hasMorning) selectedSlotKey = MORNING_KEY;
+				else {
+					const firstWithData = TIME_SLOTS.map(slotKey).find((k) => Object.keys(tables[k]).length > 0);
+					if (firstWithData) selectedSlotKey = firstWithData;
+				}
 			}
 
 			renderTimeSlotTabs();

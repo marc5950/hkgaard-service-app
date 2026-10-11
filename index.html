@@ -94,9 +94,18 @@
 			<nav id="timeSlotTabs" class="mb-6 flex flex-wrap gap-2" aria-label="Vælg hold"></nav>
 
 			<div id="statusLegend" class="mb-6 flex flex-wrap gap-2" aria-label="Statusforklaring">
+				<span class="rounded-full bg-rose-100 px-3 py-1.5 text-xs font-bold text-rose-800" title="Pax i alt på formiddags-holdene (11:45–14:15)"
+					>Formiddag: <strong id="legendMorning">0 pax</strong></span
+				>
+				<span class="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-800" title="Pax på 17:30-holdet"
+					>17:30: <strong id="legendAfternoon">0 pax</strong></span
+				>
+				<span class="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-800" title="Pax på 19:45-holdet"
+					>19:45: <strong id="legendEvening">0 pax</strong></span
+				>
 				<span
 					class="flex shrink-0 items-center gap-1.5 rounded-full bg-slate-900 px-2.5 py-1 text-xs font-bold text-white"
-					title="Antal borde · heraf færdige">
+					title="Antal borde · heraf færdige (for det valgte view)">
 					<span class="text-white/70">Antal borde:</span>
 					<strong id="legendTotal">0</strong>
 					<span class="text-white/50">·</span>
