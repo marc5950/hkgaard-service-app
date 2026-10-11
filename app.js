@@ -1757,6 +1757,7 @@ function setView(view) {
 	barView.classList.toggle("hidden", !isBar);
 	runnerView.classList.toggle("hidden", !isRunner);
 	statusLegend.classList.toggle("hidden", !isTables);
+	document.querySelector("#paxBreakdown").classList.toggle("hidden", !isTables);
 	roomHotbar.classList.toggle("hidden", !isTables);
 	reservationsToggle.classList.toggle("hidden", !isTables);
 	kitchenSummary.classList.remove("hidden");
