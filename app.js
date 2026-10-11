@@ -1487,6 +1487,7 @@ function renderTables() {
 	currentRoomGroups = computeRoomGroups();
 	renderRoomHotbar();
 	renderStatusLegend();
+	renderPaxBreakdown();
 	renderTodayReservationsBadge();
 	tablesGrid.innerHTML = currentRoomGroups.map((room) => renderRoomSection(room)).join("") + renderFinishedListAcrossSlots(viewSlots);
 
@@ -1524,19 +1525,7 @@ function renderTables() {
 }
 
 function renderStatusLegend() {
-	const slotMap = {
-		morning: MORNING_SLOTS.map(slotKey),
-		"1730": [slotKey("17:30")],
-		"1945": [slotKey("19:45")],
-	};
-	const paxFor = (slots) =>
-		slots.reduce((sum, slotK) => sum + Object.values(tables[slotK] || {}).reduce((s, t) => s + toQuantity(t.guests), 0), 0);
-
-	document.querySelector("#legendMorning").textContent = `${paxFor(slotMap.morning)} pax`;
-	document.querySelector("#legendAfternoon").textContent = `${paxFor(slotMap["1730"])} pax`;
-	document.querySelector("#legendEvening").textContent = `${paxFor(slotMap["1945"])} pax`;
-
-	// Behold statusfordelingen (Ledigt/Venter/Forret/Hovedret/Dessert) for det aktuelt valgte view.
+	// Statusfordeling (Ledigt/Venter/Forret/Hovedret/Dessert) for det aktuelt valgte view.
 	const viewSlots = getSlotsForView(selectedSlotKey);
 	const viewTables = viewSlots.flatMap((slotK) => Object.values(tables[slotK] || {}));
 	const activeTables = viewTables.filter((t) => !t.completedAt);
@@ -1556,6 +1545,37 @@ function renderStatusLegend() {
 	document.querySelector("#legendStarter").textContent = count(groups.starter);
 	document.querySelector("#legendMain").textContent = count(groups.main);
 	document.querySelector("#legendDessert").textContent = count(groups.dessert);
+}
+
+function renderPaxBreakdown() {
+	const renderBlock = (containerId, slots) => {
+		const el = document.querySelector(`#${containerId}`);
+		if (!el) return;
+		const counts = {};
+		slots.forEach((slotK) => {
+			Object.values(tables[slotK] || {}).forEach((table) => {
+				const pax = toQuantity(table.guests);
+				if (pax > 0) counts[pax] = (counts[pax] || 0) + 1;
+			});
+		});
+		const keys = Object.keys(counts)
+			.map(Number)
+			.sort((a, b) => a - b);
+		if (!keys.length) {
+			el.innerHTML = `<span class="text-[11px] italic text-slate-400">Ingen borde</span>`;
+			return;
+		}
+		el.innerHTML = keys
+			.map((pax) => {
+				const count = counts[pax];
+				return `<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700" title="${count} bord${count === 1 ? "" : "e"} med ${pax} gæster">${pax} pax: <strong>${count}</strong></span>`;
+			})
+			.join("");
+	};
+
+	renderBlock("paxBreakdownMorning", MORNING_SLOTS.map(slotKey));
+	renderBlock("paxBreakdownAfternoon", [slotKey("17:30")]);
+	renderBlock("paxBreakdownEvening", [slotKey("19:45")]);
 }
 
 function renderRoomSection(room) {
@@ -3285,6 +3305,11 @@ const GUIDE_SECTIONS = [
                     <ul class="mt-2 space-y-1.5 text-sm text-slate-700">
                         <li><strong>Formiddag:</strong> De fire formiddags-hold (11:45, 12:30, 13:30, 14:15) vises samlet under fanen <em>Formiddag</em>. Bordene grupperes pr. lokale og pr. hold med en lille overskrift over hver gruppe. Man behøver ikke skifte fane undervejs.</li>
                     </ul>
+                </div>
+
+                <div class="rounded-xl bg-slate-100 p-3 text-sm text-slate-700">
+                    <p class="font-bold">Bordstørrelser til opsætning</p>
+                    <p class="mt-1">Under statuslegenden findes en sammenklappet oversigt <strong>🪑 Bordstørrelser til opsætning</strong>. Fold den ud for at se, hvor mange 2-pax, 3-pax, 4-pax osv. borde der er booket for hhv. Formiddag, 17:30 og 19:45. Brug den når I sætter borde frem og dækker.</p>
                 </div>
 
                 <div class="rounded-xl bg-slate-100 p-3 text-sm text-slate-700">
