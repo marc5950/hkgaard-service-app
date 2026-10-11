@@ -889,10 +889,7 @@ function renderTableRoomSelect() {
 	const currentRoomId = tableRoomAssignments[String(activeTableId)] || "";
 	const options = [{ value: "", label: "Ikke tildelt" }, ...settingsRooms.map((room) => ({ value: room.id, label: room.name }))];
 	tableRoomSelect.innerHTML = options
-		.map(
-			({ value, label }) =>
-				`<option value="${escapeHtml(value)}" ${value === currentRoomId ? "selected" : ""}>${escapeHtml(label)}</option>`,
-		)
+		.map(({ value, label }) => `<option value="${escapeHtml(value)}" ${value === currentRoomId ? "selected" : ""}>${escapeHtml(label)}</option>`)
 		.join("");
 }
 
@@ -1504,9 +1501,9 @@ function renderTables() {
 	renderTodayReservationsBadge();
 	tablesGrid.innerHTML = currentRoomGroups.map((room) => renderRoomSection(room)).join("") + renderFinishedListAcrossSlots(viewSlots);
 
-	tablesGrid.querySelectorAll("[data-table-id]").forEach((card) =>
-		card.addEventListener("click", () => openModal(card.dataset.tableId, card.dataset.tableSlot)),
-	);
+	tablesGrid
+		.querySelectorAll("[data-table-id]")
+		.forEach((card) => card.addEventListener("click", () => openModal(card.dataset.tableId, card.dataset.tableSlot)));
 
 	tablesGrid.querySelectorAll("[data-quick-serve]").forEach((dot) => {
 		const trigger = (event) => {
@@ -2525,7 +2522,8 @@ async function saveTableNumber() {
 
 function openModal(id, slotKey) {
 	activeTableId = id;
-	activeTableSlotKey = slotKey || (isMorningView(selectedSlotKey) ? MORNING_SLOTS.map(slotKey).find((s) => tables[slotKey(s)]?.[id]) : selectedSlotKey);
+	activeTableSlotKey =
+		slotKey || (isMorningView(selectedSlotKey) ? MORNING_SLOTS.map(slotKey).find((s) => tables[slotKey(s)]?.[id]) : selectedSlotKey);
 	const table = getActiveTable();
 
 	modalTitle.textContent = `Bord ${getDisplayNumber(id)}`;
@@ -2625,7 +2623,7 @@ async function flushDrinkOrdersToBar() {
 		await reduceBarOrdersForItem(slot, tableId, d.categoryId, d.itemId, d.quantity);
 	}
 	for (const order of increases) {
-		await createBarOrder(tableId, order.itemId, order.itemName, order.categoryId, order.categoryName, order.quantity, table.note);
+		await createBarOrder(tableId, order.itemId, order.itemName, order.categoryId, order.categoryName, order.quantity, table.note, slot);
 	}
 }
 
@@ -2854,7 +2852,8 @@ function onWalkInTableChange() {
 
 function openWalkInForm() {
 	walkInSlot.innerHTML = TIME_SLOTS.map(
-		(slot) => `<option value="${slotKey(slot)}" ${slotKey(slot) === (isMorningView(selectedSlotKey) ? slotKey(MORNING_SLOTS[0]) : selectedSlotKey) ? "selected" : ""}>${slot}</option>`,
+		(slot) =>
+			`<option value="${slotKey(slot)}" ${slotKey(slot) === (isMorningView(selectedSlotKey) ? slotKey(MORNING_SLOTS[0]) : selectedSlotKey) ? "selected" : ""}>${slot}</option>`,
 	).join("");
 
 	populateWalkInTableOptions();
@@ -3994,7 +3993,12 @@ async function saveTable(status) {
 
 	saveMessage.textContent = "Gemmer...";
 	try {
-		await applyTableStatus(tableId, status, { guests: currentTable.guests, note: tableNote.value.trim(), extras: currentTable.extras }, activeTableSlotKey || selectedSlotKey);
+		await applyTableStatus(
+			tableId,
+			status,
+			{ guests: currentTable.guests, note: tableNote.value.trim(), extras: currentTable.extras },
+			activeTableSlotKey || selectedSlotKey,
+		);
 		saveMessage.textContent = "Gemt";
 		setTimeout(closeModal, 350);
 	} catch (error) {
